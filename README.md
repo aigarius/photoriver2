@@ -2,6 +2,8 @@
 
 Multi-node photo synchronization service
 
+![Unit tests](https://github.com/aigarius/photoriver2/workflows/nox-check/badge.svg)
+
 ## Use case
 
 This service is intended to be used to keep a large collection of photos in sync
@@ -59,30 +61,38 @@ adding EXIF information about the event.
 
 Run unit tests
 
+```bash
 $ sudo apt install python3-nox
 $ python3 -m nox
+```
 
 or
 
+```bash
 $ docker build -t photoriver2 .
 $ docker run --rm -it --entrypoint pytest-3 photoriver2 --flake8
+```
 
 ### Configuring the service
 
 *** TODO ***
 
+```bash
 $ mkdir ~/.config/photoriver2
 $ cp river.conf ~/.config/photoriver2/
 $ vim ~/.config/photoriver2/river.conf
+```
 
 ### Running the service
 
+```bash
 $ docker build -t photoriver2 .
 $ docker run --rm -it \
 	-v /home/${USER}/Pictures:/river/base \
 	-v /home/${USER}/.config/photoriver2:/river/config \
 	-v /mnt/other_folder:/river/locals/other_folder \
 	photoriver2 --dry-run
+```
 
 Remove the "--dry-run" option when you are sure that the sync will do what you
 want it to do.
