@@ -2,6 +2,8 @@
 import json
 import os
 
+IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
+
 
 class BaseRemote:
     """Common functionality between local folder remotes and online remotes"""
@@ -10,8 +12,8 @@ class BaseRemote:
 
     def __init__(self, name="local"):
         self.name = name
-        self.config_file = os.path.join("/river/config", name + ".json")
-        self.old_state = self.load_old_state(self.config_file)
+        self.state_file = os.path.join("/river/config", name + "_state.json")
+        self.old_state = self.load_old_state(self.state_file)
 
     @staticmethod
     def load_old_state(config_file):
@@ -32,10 +34,16 @@ class BaseRemote:
 
     def get_updates(self):
         """Create a list of updates that happened from old state to new state"""
+        return self._get_photo_updates() + self._get_album_updates()
+
+    def get_fixes(self):
+        """Create a list of changes to the remote itself"""
+        return []
+
+    def _get_photo_updates(self):
         updates = []
-        added = set()
-        deleted = set()
         # Find deleted photos
+        deleted = set()
         for aphoto in self.old_state["photos"]:
             if not any(x["name"] == aphoto["name"] for x in self.new_state["photos"]):
                 update = aphoto.copy()
@@ -43,6 +51,7 @@ class BaseRemote:
                 updates.append(update)
                 deleted.add(os.path.basename(update["name"]))
         # Find new photos
+        added = set()
         for aphoto in self.new_state["photos"]:
             if not any(x["name"] == aphoto["name"] for x in self.old_state["photos"]):
                 update = aphoto.copy()
@@ -62,6 +71,50 @@ class BaseRemote:
             updates.append(update)
         return updates
 
+    def _get_album_updates(self):
+        updates = []
+        # Find new albums
+        new_albums = set()
+        for album in self.new_state["albums"]:
+            if not any(x["name"] == album["name"] for x in self.old_state["albums"]):
+                update = album.copy()
+                update["action"] = "new_album"
+                updates.append(update)
+                new_albums.add(update["name"])
+        # Find deleted albums
+        del_albums = set()
+        for album in self.old_state["albums"]:
+            if not any(x["name"] == album["name"] for x in self.new_state["albums"]):
+                update = album.copy()
+                update["action"] = "del_album"
+                del update["photos"]
+                updates.append(update)
+                del_albums.add(update["name"])
+        # Find added/deleted photos to existing albums
+        for album in self.new_state["albums"]:
+            if album["name"] in new_albums:
+                continue
+            old_album = [x for x in self.old_state["albums"] if x["name"] == album["name"]][0]
+            new_photos = set(album["photos"]) - set(old_album["photos"])
+            del_photos = set(old_album["photos"]) - set(album["photos"])
+            for new_photo in new_photos:
+                updates.append(
+                    {
+                        "action": "new_album_photo",
+                        "name": new_photo,
+                        "album_name": album["name"],
+                    }
+                )
+            for del_photo in del_photos:
+                updates.append(
+                    {
+                        "action": "del_album_photo",
+                        "name": del_photo,
+                        "album_name": album["name"],
+                    }
+                )
+        return updates
+
 
 class LocalRemote(BaseRemote):
     """Remote representing a local folder with photos"""
@@ -73,7 +126,9 @@ class LocalRemote(BaseRemote):
         for root, _, files in os.walk(self.folder):
             for afile in files:
                 name = os.path.relpath(os.path.join(root, afile), self.folder)
-                photos.append({"name": name})
+                if "." in name and name.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
+                    if not os.path.islink(os.path.join(root, afile)):
+                        photos.append({"name": name})
         return sorted(photos, key=lambda x: x["name"])
 
     def get_albums(self):
@@ -83,13 +138,33 @@ class LocalRemote(BaseRemote):
             for adir in dirs:
                 if not adir.is_dir():
                     continue
+                photos = os.listdir(adir.path)
+                # Resolve symlinks in paths of photos in albums
+                photos = [os.path.relpath(os.path.realpath(os.path.join(adir.path, x)), self.folder) for x in photos]
                 albums.append(
                     {
                         "name": adir.name,
-                        "photos": os.listdir(adir.path),
+                        "photos": photos,
                     }
                 )
         return sorted(albums, key=lambda x: x["name"])
+
+    def get_fixes(self):
+        fixes = []
+        # Files in albums/ should be symlinks
+        for root, _, files in os.walk(os.path.join(self.folder, "albums")):
+            for afile in files:
+                if "." in afile and afile.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
+                    full_path = os.path.join(root, afile)
+                    if not os.path.islink(full_path):
+                        fixes.append(
+                            {
+                                "action": "symlink",
+                                "name": os.path.relpath(full_path, self.folder),
+                                "to": os.path.basename(full_path),
+                            }
+                        )
+        return fixes
 
 
 class GoogleRemote(BaseRemote):

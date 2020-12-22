@@ -10,7 +10,7 @@ def test_init():
     assert BaseRemote() is not None
 
 
-def test_config_load():
+def test_state_load():
     with tempfile.NamedTemporaryFile() as tmp:
         tmp.write(b'{"a":1,"b":2}')
         tmp.flush()
@@ -25,6 +25,9 @@ def test_get_new_state():
         "photos": [{"name": "Photo1"}],
         "albums": [{"name": "Album1", "photos": ["Photo1"]}],
     }
+
+
+# test_state_save
 
 
 @pytest.mark.parametrize(
@@ -45,6 +48,28 @@ def test_get_new_state():
             {"photos": [{"name": "2020/01/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
             {"photos": [{"name": "2020/02/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
             [{"action": "mv", "name": "2020/01/IMG001", "new_name": "2020/02/IMG001"}],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            [
+                {"action": "new_album", "name": "Spring", "photos": ["IMG001"]},
+            ],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            [{"action": "del_album", "name": "Spring"}],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": []}]},
+            [{"action": "del_album_photo", "album_name": "Spring", "name": "IMG001"}],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": []}]},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            [{"action": "new_album_photo", "album_name": "Spring", "name": "IMG001"}],
         ),
     ],
 )
