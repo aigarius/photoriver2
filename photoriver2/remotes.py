@@ -19,7 +19,7 @@ class BaseRemote:
             with open(config_file, "r") as infile:
                 return json.load(infile)
         else:
-            return {}
+            return {"photos": [], "albums": []}
 
     def get_new_state(self):
         return {"photos": self.get_photos(), "albums": self.get_albums()}
@@ -29,6 +29,38 @@ class BaseRemote:
 
     def get_albums(self):
         raise NotImplementedError
+
+    def get_updates(self):
+        """Create a list of updates that happened from old state to new state"""
+        updates = []
+        added = set()
+        deleted = set()
+        # Find deleted photos
+        for aphoto in self.old_state["photos"]:
+            if not any(x["name"] == aphoto["name"] for x in self.new_state["photos"]):
+                update = aphoto.copy()
+                update["action"] = "del"
+                updates.append(update)
+                deleted.add(os.path.basename(update["name"]))
+        # Find new photos
+        for aphoto in self.new_state["photos"]:
+            if not any(x["name"] == aphoto["name"] for x in self.old_state["photos"]):
+                update = aphoto.copy()
+                update["action"] = "new"
+                updates.append(update)
+                added.add(os.path.basename(update["name"]))
+        # Identify moved files (same basename, del and new at the same check)
+        moved = added & deleted
+        moved_updates = [x for x in updates if os.path.basename(x["name"]) in moved]
+        updates = [x for x in updates if os.path.basename(x["name"]) not in moved]
+        for name in moved:
+            update = [x for x in moved_updates if x["action"] == "del" and os.path.basename(x["name"]) == name][0]
+            update["action"] = "mv"
+            update["new_name"] = [
+                x for x in moved_updates if x["action"] == "new" and os.path.basename(x["name"]) == name
+            ][0]["name"]
+            updates.append(update)
+        return updates
 
 
 class LocalRemote(BaseRemote):
@@ -57,7 +89,7 @@ class LocalRemote(BaseRemote):
                         "photos": os.listdir(adir.path),
                     }
                 )
-        return albums
+        return sorted(albums, key=lambda x: x["name"])
 
 
 class GoogleRemote(BaseRemote):

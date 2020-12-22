@@ -1,6 +1,8 @@
 """Test the remote base class"""
 import tempfile
 
+import pytest
+
 from photoriver2.remotes import BaseRemote
 
 
@@ -23,3 +25,31 @@ def test_get_new_state():
         "photos": [{"name": "Photo1"}],
         "albums": [{"name": "Album1", "photos": ["Photo1"]}],
     }
+
+
+@pytest.mark.parametrize(
+    "state_old,state_new,expected",
+    [
+        ({"photos": [], "albums": []}, {"photos": [], "albums": []}, []),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            {"photos": [], "albums": []},
+            [{"action": "del", "name": "IMG001"}],
+        ),
+        (
+            {"photos": [], "albums": []},
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            [{"action": "new", "name": "IMG001"}],
+        ),
+        (
+            {"photos": [{"name": "2020/01/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
+            {"photos": [{"name": "2020/02/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
+            [{"action": "mv", "name": "2020/01/IMG001", "new_name": "2020/02/IMG001"}],
+        ),
+    ],
+)
+def test_get_updates(state_old, state_new, expected):
+    obj = BaseRemote()
+    obj.old_state = state_old
+    obj.new_state = state_new
+    assert obj.get_updates() == expected
