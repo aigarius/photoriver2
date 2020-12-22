@@ -1,0 +1,6 @@
+[MASTER]
+jobs=0
+[FORMAT]
+max-line-length=150
+[MESSAGES CONTROL]
+disable=missing-function-docstring,abstract-method,missing-module-docstring
