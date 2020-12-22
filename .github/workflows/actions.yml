@@ -5,5 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: excitedleigh/setup-nox@1.0.0
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install nox
       - run: python3 -m nox
