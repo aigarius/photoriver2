@@ -1,5 +1,8 @@
 """Test the local file remote class"""
 import os
+
+from unittest.mock import mock_open
+
 import pytest
 
 from photoriver2.remotes import LocalRemote, deconflict
@@ -29,12 +32,22 @@ expected_albums = [
 ]
 
 
+def _skip_data(dicts):
+    result = []
+    for adict in dicts:
+        adict = adict.copy()
+        if "data" in adict:
+            del adict["data"]
+        result.append(adict)
+    return result
+
+
 def _setup_tmpdir(tmpdir):
     for afile in files:
         full_path = os.path.join(tmpdir, afile)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, "w"):
-            pass
+        with open(full_path, "w") as outfile:
+            outfile.write(afile)
     for alink, dest in links.items():
         alink = os.path.join(tmpdir, alink)
         os.makedirs(os.path.dirname(alink), exist_ok=True)
@@ -46,7 +59,12 @@ def test_get_photos(tmpdir):
     _setup_tmpdir(tmpdir)
     obj = LocalRemote()
     obj.folder = tmpdir
-    assert obj.get_photos() == expected_photos
+    photos_data = obj.get_photos()
+    assert _skip_data(photos_data) == expected_photos
+    for aphoto in photos_data:
+        infile = aphoto["data"]()
+        assert infile.read().decode("utf-8") == aphoto["name"]
+        infile.close()
 
 
 def test_get_albums(tmpdir):
@@ -81,7 +99,7 @@ def test_do_fixes(tmpdir):
     "updates,state_photos,state_albums",
     [
         (
-            [{"action": "new", "name": "2021/01/rfse.jpeg", "data": lambda: b"Image"}],
+            [{"action": "new", "name": "2021/01/rfse.jpeg", "data": mock_open(read_data=b"Image")}],
             sorted(expected_photos + [{"name": "2021/01/rfse.jpeg"}], key=lambda x: x["name"]),
             expected_albums,
         ),
@@ -160,7 +178,7 @@ def test_do_updates(tmpdir, updates, state_photos, state_albums):
     obj = LocalRemote()
     obj.folder = tmpdir
     obj.do_updates(updates)
-    assert obj.get_photos() == state_photos
+    assert _skip_data(obj.get_photos()) == state_photos
     assert obj.get_albums() == state_albums
 
 

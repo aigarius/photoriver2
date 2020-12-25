@@ -156,7 +156,8 @@ class LocalRemote(BaseRemote):
                 name = os.path.relpath(os.path.join(root, afile), self.folder)
                 if "." in name and name.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
                     if not os.path.islink(os.path.join(root, afile)):
-                        photos.append({"name": name})
+                        # pylint: disable=cell-var-from-loop
+                        photos.append({"name": name, "data": lambda n=os.path.join(root, afile): open(n, "rb")})
         return sorted(photos, key=lambda x: x["name"])
 
     def get_albums(self):
@@ -215,7 +216,9 @@ class LocalRemote(BaseRemote):
                 if not os.path.exists(self._abs(update["name"])):
                     os.makedirs(self._abs(os.path.dirname(update["name"])), exist_ok=True)
                     with open(self._abs(update["name"]), "wb") as outfile:
-                        outfile.write(update["data"]())
+                        infile = update["data"]()
+                        outfile.write(infile.read())
+                        infile.close()
             elif update["action"] == "del":
                 if os.path.exists(self._abs(update["name"])):
                     os.remove(self._abs(update["name"]))
