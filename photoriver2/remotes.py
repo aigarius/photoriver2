@@ -159,7 +159,7 @@ class LocalRemote(BaseRemote):
                 albums.append(
                     {
                         "name": adir.name,
-                        "photos": photos,
+                        "photos": sorted(photos),
                     }
                 )
         return sorted(albums, key=lambda x: x["name"])
