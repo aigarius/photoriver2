@@ -2,7 +2,7 @@
 import os
 import pytest
 
-from photoriver2.remotes import LocalRemote
+from photoriver2.remotes import LocalRemote, deconflict
 
 
 def test_init():
@@ -106,6 +106,7 @@ def test_do_fixes(tmpdir):
         (
             [
                 {"action": "new_album", "name": "Fall", "photos": ["2020/01/49934.jpeg"]},
+                {"action": "new_album", "name": "Fall", "photos": ["2020/01/49934.jpeg"]},
             ],
             expected_photos,
             sorted(expected_albums + [{"name": "Fall", "photos": ["2020/01/49934.jpeg"]}], key=lambda x: x["name"]),
@@ -116,7 +117,10 @@ def test_do_fixes(tmpdir):
             [x for x in expected_albums if x["name"] != "Spring"],
         ),
         (
-            [{"action": "del_album_photo", "album_name": "Spring", "name": "2020/01/49935.jpeg"}],
+            [
+                {"action": "del_album_photo", "album_name": "Spring", "name": "2020/01/49935.jpeg"},
+                {"action": "del_album_photo", "album_name": "Spring", "name": "2020/01/49935.jpeg"},
+            ],
             expected_photos,
             [
                 x if x["name"] != "Spring" else dict(list(x.items()) + [("photos", ["2020/01/49936.jpeg"])])
@@ -124,12 +128,28 @@ def test_do_fixes(tmpdir):
             ],
         ),
         (
-            [{"action": "new_album_photo", "album_name": "Spring", "name": "2020/01/49934.jpeg"}],
+            [
+                {"action": "new_album_photo", "album_name": "Spring", "name": "2020/01/49934.jpeg"},
+                {"action": "new_album_photo", "album_name": "Spring", "name": "2020/01/49934.jpeg"},
+            ],
             expected_photos,
             [
                 x
                 if x["name"] != "Spring"
                 else dict(list(x.items()) + [("photos", sorted(x["photos"] + ["2020/01/49934.jpeg"]))])
+                for x in expected_albums
+            ],
+        ),
+        (
+            [
+                {"action": "new_album_photo", "album_name": "Spring", "name": "2020/02/49935.jpeg"},
+                {"action": "del_album_photo", "album_name": "Spring", "name": "2020/01/49935.jpeg"},
+            ],
+            expected_photos,
+            [
+                x
+                if x["name"] != "Spring"
+                else dict(list(x.items()) + [("photos", ["2020/01/49936.jpeg", "2020/02/49935.jpeg"])])
                 for x in expected_albums
             ],
         ),
@@ -142,6 +162,19 @@ def test_do_updates(tmpdir, updates, state_photos, state_albums):
     obj.do_updates(updates)
     assert obj.get_photos() == state_photos
     assert obj.get_albums() == state_albums
+
+
+def test_deconflict(tmpdir):
+    assert deconflict(os.path.join(tmpdir, "image.jpeg")) == os.path.join(tmpdir, "image.jpeg")
+    with open(os.path.join(tmpdir, "image.jpeg"), "w"):
+        pass
+    assert deconflict(os.path.join(tmpdir, "image.jpeg")) == os.path.join(tmpdir, "image_01.jpeg")
+    with open(os.path.join(tmpdir, "image_01.jpeg"), "w"):
+        pass
+    assert deconflict(os.path.join(tmpdir, "image.jpeg")) == os.path.join(tmpdir, "image_02.jpeg")
+    with open(os.path.join(tmpdir, "image_02.jpeg"), "w"):
+        pass
+    assert deconflict(os.path.join(tmpdir, "image.jpeg")) == os.path.join(tmpdir, "image_03.jpeg")
 
 
 # test_load_config

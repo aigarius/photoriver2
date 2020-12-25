@@ -6,6 +6,19 @@ import shutil
 IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
 
 
+def deconflict(path):
+    if not os.path.exists(path):
+        return path
+    if "." in os.path.basename(path):
+        base, ext = path.rsplit(".", 1)
+    else:
+        base = path
+        ext = ""
+    if base[-3] != "_" or not base[-2:].isdigit():
+        return deconflict(base + "_01." + ext)
+    return deconflict("{}_{:02}.{}".format(base[:-3], int(base[-2:]) + 1, ext))
+
+
 class BaseRemote:
     """Common functionality between local folder remotes and online remotes"""
 
@@ -216,24 +229,34 @@ class LocalRemote(BaseRemote):
         for update in updates:
             if update["action"] == "new_album":
                 album_path = self._abs(os.path.join("albums", update["name"]))
-                os.makedirs(album_path)
-                for aphoto in update["photos"]:
-                    os.symlink(
-                        os.path.relpath(self._abs(aphoto), album_path),
-                        os.path.join(album_path, os.path.basename(aphoto)),
-                    )
+                if not os.path.exists(album_path):
+                    os.makedirs(album_path)
+                    for aphoto in update["photos"]:
+                        os.symlink(
+                            os.path.relpath(self._abs(aphoto), album_path),
+                            os.path.join(album_path, os.path.basename(aphoto)),
+                        )
             elif update["action"] == "del_album":
                 album_path = self._abs(os.path.join("albums", update["name"]))
                 shutil.rmtree(album_path, ignore_errors=True)
             elif update["action"] == "new_album_photo":
                 album_path = self._abs(os.path.join("albums", update["album_name"]))
-                os.symlink(
-                    os.path.relpath(self._abs(update["name"]), album_path),
-                    os.path.join(album_path, os.path.basename(update["name"])),
-                )
+                found = False
+                for image in os.listdir(album_path):
+                    if os.path.realpath(os.path.join(album_path, image)) == self._abs(update["name"]):
+                        found = True
+                if not found:
+                    link_path = os.path.join(album_path, os.path.basename(update["name"]))
+                    link_path = deconflict(link_path)
+                    os.symlink(
+                        os.path.relpath(self._abs(update["name"]), album_path),
+                        link_path,
+                    )
             elif update["action"] == "del_album_photo":
                 album_path = self._abs(os.path.join("albums", update["album_name"]))
-                os.remove(os.path.join(album_path, os.path.basename(update["name"])))
+                for image in os.listdir(album_path):
+                    if os.path.realpath(os.path.join(album_path, image)) == self._abs(update["name"]):
+                        os.remove(os.path.join(album_path, image))
 
 
 class GoogleRemote(BaseRemote):
