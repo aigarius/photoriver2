@@ -1,6 +1,7 @@
 """Remotes implementation - state of an instance of a photo collection"""
 import json
 import os
+import shutil
 
 IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
 
@@ -36,9 +37,23 @@ class BaseRemote:
         """Create a list of updates that happened from old state to new state"""
         return self._get_photo_updates() + self._get_album_updates()
 
+    def do_updates(self, updates):
+        self._do_photo_updates(updates)
+        self._do_album_updates(updates)
+
+    def _do_photo_updates(self, updates):
+        raise NotImplementedError
+
+    def _do_album_updates(self, updates):
+        raise NotImplementedError
+
     def get_fixes(self):
         """Create a list of changes to the remote itself"""
         return []
+
+    def do_fixes(self, fixes):  # pylint: disable=unused-argument
+        """Apply the fixes"""
+        return
 
     def _get_photo_updates(self):
         updates = []
@@ -165,6 +180,60 @@ class LocalRemote(BaseRemote):
                             }
                         )
         return fixes
+
+    def _abs(self, path):
+        return os.path.join(self.folder, path)
+
+    def do_fixes(self, fixes):
+        for afix in fixes:
+            if afix["action"] == "symlink":
+                # Move the file over to new location (making parent folders as needed)
+                os.makedirs(self._abs(os.path.dirname(afix["to"])))
+                os.rename(self._abs(afix["name"]), self._abs(afix["to"]))
+                # Create a relative symlink in the old place pointing to the new location
+                os.symlink(
+                    os.path.relpath(self._abs(afix["to"]), os.path.dirname(self._abs(afix["name"]))),
+                    self._abs(afix["name"]),
+                )
+
+    def _do_photo_updates(self, updates):
+        for update in updates:
+            if update["action"] == "new":
+                if not os.path.exists(self._abs(update["name"])):
+                    os.makedirs(self._abs(os.path.dirname(update["name"])), exist_ok=True)
+                    with open(self._abs(update["name"]), "wb") as outfile:
+                        outfile.write(update["data"]())
+            elif update["action"] == "del":
+                if os.path.exists(self._abs(update["name"])):
+                    os.remove(self._abs(update["name"]))
+            elif update["action"] == "mv":
+                if os.path.exists(self._abs(update["name"])):
+                    if not os.path.exists(self._abs(update["new_name"])):
+                        os.makedirs(self._abs(os.path.dirname(update["new_name"])), exist_ok=True)
+                        os.rename(self._abs(update["name"]), self._abs(update["new_name"]))
+
+    def _do_album_updates(self, updates):
+        for update in updates:
+            if update["action"] == "new_album":
+                album_path = self._abs(os.path.join("albums", update["name"]))
+                os.makedirs(album_path)
+                for aphoto in update["photos"]:
+                    os.symlink(
+                        os.path.relpath(self._abs(aphoto), album_path),
+                        os.path.join(album_path, os.path.basename(aphoto)),
+                    )
+            elif update["action"] == "del_album":
+                album_path = self._abs(os.path.join("albums", update["name"]))
+                shutil.rmtree(album_path, ignore_errors=True)
+            elif update["action"] == "new_album_photo":
+                album_path = self._abs(os.path.join("albums", update["album_name"]))
+                os.symlink(
+                    os.path.relpath(self._abs(update["name"]), album_path),
+                    os.path.join(album_path, os.path.basename(update["name"])),
+                )
+            elif update["action"] == "del_album_photo":
+                album_path = self._abs(os.path.join("albums", update["album_name"]))
+                os.remove(os.path.join(album_path, os.path.basename(update["name"])))
 
 
 class GoogleRemote(BaseRemote):
