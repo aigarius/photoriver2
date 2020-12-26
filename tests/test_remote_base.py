@@ -85,3 +85,56 @@ def test_get_updates(state_old, state_new, expected):
     obj.old_state = state_old
     obj.new_state = state_new
     assert obj.get_updates() == expected
+
+
+@pytest.mark.parametrize(
+    "state_our,state_their,expected",
+    [
+        ({"photos": [], "albums": []}, {"photos": [], "albums": []}, []),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            {"photos": [], "albums": []},
+            [],
+        ),
+        (
+            {"photos": [], "albums": []},
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            [{"action": "new", "name": "IMG001"}],
+        ),
+        (
+            {"photos": [{"name": "2020/01/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
+            {"photos": [{"name": "2020/02/IMG001"}, {"name": "2020/01/IMG002"}], "albums": []},
+            [{"action": "new", "name": "2020/02/IMG001"}],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            [
+                {"action": "new_album", "name": "Spring", "photos": ["IMG001"]},
+            ],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            {"photos": [{"name": "IMG001"}], "albums": []},
+            [],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": []}]},
+            [],
+        ),
+        (
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": []}]},
+            {"photos": [{"name": "IMG001"}], "albums": [{"name": "Spring", "photos": ["IMG001"]}]},
+            [{"action": "new_album_photo", "album_name": "Spring", "name": "IMG001"}],
+        ),
+    ],
+)
+def test_get_merge_updates(state_our, state_their, expected):
+    obj1 = BaseRemote()
+    obj1.new_state = state_their
+
+    obj2 = BaseRemote()
+    obj2.new_state = state_our
+
+    assert obj2.get_merge_updates(obj1) == expected

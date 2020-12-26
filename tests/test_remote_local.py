@@ -200,6 +200,29 @@ def test_do_updates_int(tmpdir):
         infile.close()
 
 
+def test_do_merge_int(tmpdir):
+    """Take files from one remote, merge them to another and check integrity"""
+    os.makedirs(os.path.join(tmpdir, "1"))
+    os.makedirs(os.path.join(tmpdir, "2"))
+    obj1 = LocalRemote(os.path.join(tmpdir, "1"))
+    obj2 = LocalRemote(os.path.join(tmpdir, "2"))
+
+    _setup_tmpdir(os.path.join(tmpdir, "1"))
+    obj1.old_state = obj1.get_new_state()
+    obj2.old_state = obj2.get_new_state()
+
+    merge_updates = obj2.get_merge_updates(obj1)
+    obj2.do_updates(merge_updates)
+
+    new_state = obj2.get_new_state()
+    assert expected_photos == _skip_data(new_state["photos"])
+    assert expected_albums == new_state["albums"]
+    for aphoto in new_state["photos"]:
+        infile = aphoto["data"]()
+        assert infile.read().decode("utf-8") == aphoto["name"]
+        infile.close()
+
+
 def test_deconflict(tmpdir):
     assert deconflict(os.path.join(tmpdir, "image.jpeg")) == os.path.join(tmpdir, "image.jpeg")
     with open(os.path.join(tmpdir, "image.jpeg"), "w"):

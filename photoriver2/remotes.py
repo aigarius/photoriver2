@@ -73,6 +73,38 @@ class BaseRemote:
         """Apply the fixes"""
         return
 
+    def get_merge_updates(self, other):
+        """Return updates to add items from other remote"""
+        updates = []
+        for aphoto in other.new_state["photos"]:
+            if not any(x["name"] == aphoto["name"] for x in self.new_state["photos"]):
+                update = aphoto.copy()
+                update["action"] = "new"
+                updates.append(update)
+        # Find new albums
+        new_albums = set()
+        for album in other.new_state["albums"]:
+            if not any(x["name"] == album["name"] for x in self.new_state["albums"]):
+                update = album.copy()
+                update["action"] = "new_album"
+                updates.append(update)
+                new_albums.add(update["name"])
+        # Find added/deleted photos to existing albums
+        for album in other.new_state["albums"]:
+            if album["name"] in new_albums:
+                continue
+            old_album = [x for x in self.new_state["albums"] if x["name"] == album["name"]][0]
+            new_photos = set(album["photos"]) - set(old_album["photos"])
+            for new_photo in new_photos:
+                updates.append(
+                    {
+                        "action": "new_album_photo",
+                        "name": new_photo,
+                        "album_name": album["name"],
+                    }
+                )
+        return updates
+
     def _get_photo_updates(self):
         updates = []
         # Find deleted photos
