@@ -66,12 +66,12 @@ $ sudo apt install python3-nox
 $ python3 -m nox
 ```
 
-or
+Run unit tests in Docker
 
 ```bash
-$ docker build -t photoriver2 .
-$ docker run --rm -it --entrypoint pytest-3 photoriver2 --flake8
+$ python3 -m nox -s "docker_tests"
 ```
+
 
 ### Configuring the service
 
