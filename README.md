@@ -78,7 +78,7 @@ $ python3 -m nox -s "docker_tests"
 ```bash
 $ mkdir ~/.config/photoriver2
 $ cp river.conf ~/.config/photoriver2/
-$ vim ~/.config/photoriver2/river.conf
+$ vim ~/.config/photoriver2/photoriver2.ini
 ```
 
 Example config with two local remotes
@@ -94,6 +94,7 @@ folder=/river/base
 [remote2]
 type=local
 folder=/river/locals/other_folder
+```
 
 ### Running the service
 
