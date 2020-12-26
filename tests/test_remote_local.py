@@ -9,7 +9,7 @@ from photoriver2.remotes import LocalRemote, deconflict
 
 
 def test_init():
-    assert LocalRemote() is not None
+    assert LocalRemote(".") is not None
 
 
 files = [
@@ -57,8 +57,7 @@ def _setup_tmpdir(tmpdir):
 
 def test_get_photos(tmpdir):
     _setup_tmpdir(tmpdir)
-    obj = LocalRemote()
-    obj.folder = tmpdir
+    obj = LocalRemote(tmpdir)
     photos_data = obj.get_photos()
     assert _skip_data(photos_data) == expected_photos
     for aphoto in photos_data:
@@ -69,8 +68,7 @@ def test_get_photos(tmpdir):
 
 def test_get_albums(tmpdir):
     _setup_tmpdir(tmpdir)
-    obj = LocalRemote()
-    obj.folder = tmpdir
+    obj = LocalRemote(tmpdir)
     assert obj.get_albums() == expected_albums
 
 
@@ -78,8 +76,7 @@ def test_get_fixes(tmpdir):
     _setup_tmpdir(tmpdir)
     with open(os.path.join(tmpdir, "albums/Autumn/50000.jpeg"), "w"):
         pass
-    obj = LocalRemote()
-    obj.folder = tmpdir
+    obj = LocalRemote(tmpdir)
     assert obj.get_fixes() == [{"action": "symlink", "name": "albums/Autumn/50000.jpeg", "to": "50000.jpeg"}]
 
 
@@ -87,8 +84,7 @@ def test_do_fixes(tmpdir):
     _setup_tmpdir(tmpdir)
     with open(os.path.join(tmpdir, "albums/Autumn/50000.jpeg"), "w"):
         pass
-    obj = LocalRemote()
-    obj.folder = tmpdir
+    obj = LocalRemote(tmpdir)
     obj.do_fixes([{"action": "symlink", "name": "albums/Autumn/50000.jpeg", "to": "2020/03/50000.jpeg"}])
     assert os.path.realpath(os.path.join(tmpdir, "albums/Autumn/50000.jpeg")) == os.path.join(
         tmpdir, "2020/03/50000.jpeg"
@@ -175,11 +171,33 @@ def test_do_fixes(tmpdir):
 )
 def test_do_updates(tmpdir, updates, state_photos, state_albums):
     _setup_tmpdir(tmpdir)
-    obj = LocalRemote()
-    obj.folder = tmpdir
+    obj = LocalRemote(tmpdir)
     obj.do_updates(updates)
     assert _skip_data(obj.get_photos()) == state_photos
     assert obj.get_albums() == state_albums
+
+
+def test_do_updates_int(tmpdir):
+    """Take updates from one remote, pass them to another and check integrity"""
+    os.makedirs(os.path.join(tmpdir, "1"))
+    os.makedirs(os.path.join(tmpdir, "2"))
+    obj1 = LocalRemote(os.path.join(tmpdir, "1"))
+    obj2 = LocalRemote(os.path.join(tmpdir, "2"))
+
+    _setup_tmpdir(os.path.join(tmpdir, "1"))
+    fixes = obj1.get_fixes()
+    obj1.do_fixes(fixes)
+    obj1.new_state = obj1.get_new_state()
+    updates = obj1.get_updates()
+
+    obj2.do_updates(updates)
+    new_state = obj2.get_new_state()
+    assert expected_photos == _skip_data(new_state["photos"])
+    assert expected_albums == new_state["albums"]
+    for aphoto in new_state["photos"]:
+        infile = aphoto["data"]()
+        assert infile.read().decode("utf-8") == aphoto["name"]
+        infile.close()
 
 
 def test_deconflict(tmpdir):

@@ -1,4 +1,5 @@
 """Test the remote base class"""
+import os
 import tempfile
 
 import pytest
@@ -27,7 +28,13 @@ def test_get_new_state():
     }
 
 
-# test_state_save
+def test_state_save(tmpdir):
+    obj = BaseRemote()
+    obj.state_file = os.path.join(tmpdir, "base.json")
+    obj.new_state = {"a": 1, "b": 2}
+    obj.save_new_state()
+    with open(os.path.join(tmpdir, "base.json"), "rb") as infile:
+        assert infile.read() == b'{"a": 1, "b": 2}'
 
 
 @pytest.mark.parametrize(

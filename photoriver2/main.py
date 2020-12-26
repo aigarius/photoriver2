@@ -1,3 +1,4 @@
 #!/usr/bin/env python3
 
-print("Looking good")
+if __name__ == "__main__":
+    print("Looking good")

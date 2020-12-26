@@ -75,13 +75,25 @@ $ docker run --rm -it --entrypoint pytest-3 photoriver2 --flake8
 
 ### Configuring the service
 
-*** TODO ***
-
 ```bash
 $ mkdir ~/.config/photoriver2
 $ cp river.conf ~/.config/photoriver2/
 $ vim ~/.config/photoriver2/river.conf
 ```
+
+Example config with two local remotes
+
+```
+[main]
+dry_run=true
+
+[remote1]
+type=local
+folder=/river/base
+
+[remote2]
+type=local
+folder=/river/locals/other_folder
 
 ### Running the service
 
@@ -91,8 +103,8 @@ $ docker run --rm -it \
 	-v /home/${USER}/Pictures:/river/base \
 	-v /home/${USER}/.config/photoriver2:/river/config \
 	-v /mnt/other_folder:/river/locals/other_folder \
-	photoriver2 --dry-run
+	photoriver2
 ```
 
-Remove the "--dry-run" option when you are sure that the sync will do what you
+Remove the "dry_run" option when you are sure that the sync will do what you
 want it to do.

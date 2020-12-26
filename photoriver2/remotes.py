@@ -38,7 +38,12 @@ class BaseRemote:
             return {"photos": [], "albums": []}
 
     def get_new_state(self):
-        return {"photos": self.get_photos(), "albums": self.get_albums()}
+        self.new_state = {"photos": self.get_photos(), "albums": self.get_albums()}
+        return self.new_state
+
+    def save_new_state(self):
+        with open(self.state_file, "w") as infile:
+            json.dump(self.new_state, infile)
 
     def get_photos(self):
         raise NotImplementedError
@@ -148,6 +153,10 @@ class LocalRemote(BaseRemote):
     """Remote representing a local folder with photos"""
 
     folder = None
+
+    def __init__(self, folder, *args, **kwargs):
+        self.folder = folder
+        super().__init__(*args, **kwargs)
 
     def get_photos(self):
         photos = []
