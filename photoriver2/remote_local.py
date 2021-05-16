@@ -2,9 +2,22 @@
 import os
 import shutil
 
-from photoriver2.remote_base import BaseRemote, deconflict
+from photoriver2.remote_base import BaseRemote
 
 IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
+
+
+def deconflict(path):
+    if not os.path.exists(path):
+        return path
+    if "." in os.path.basename(path):
+        base, ext = path.rsplit(".", 1)
+    else:
+        base = path
+        ext = ""
+    if base[-3] != "_" or not base[-2:].isdigit():
+        return deconflict(base + "_01." + ext)
+    return deconflict("{}_{:02}.{}".format(base[:-3], int(base[-2:]) + 1, ext))
 
 
 class LocalRemote(BaseRemote):
