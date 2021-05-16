@@ -92,16 +92,16 @@ class GPhoto:
             cache_file.write(json.dumps(cache).encode("utf8"))
 
     def _extract_albums(self, data):
-        albums = {}
+        albums = []
         logger.info("Received data about %i albums", len(data.get("albums", [])))
         for entry in data.get("albums", []):
             logger.debug("Processing: %s", entry)
-            title = entry.get("title", entry["id"])
-            if title not in albums:
-                albums[title] = {}
-            albums[title]["id"] = entry["id"]
-            albums[title]["user_url"] = entry["productUrl"]
-            albums[title]["count"] = int(entry.get("mediaItemsCount", 0))
+            album = {}
+            album["name"] = entry.get("title", entry["id"])
+            album["id"] = entry["id"]
+            album["user_url"] = entry["productUrl"]
+            album["count"] = int(entry.get("mediaItemsCount", 0))
+            albums.append(album)
         return albums
 
     def get_albums(self):
@@ -113,12 +113,12 @@ class GPhoto:
         while "nextPageToken" in data:
             payload["page_token"] = data["nextPageToken"]
             data = self._load_new_data(URL_ALBUMS, "get", payload)
-            albums.update(self._extract_albums(data))
+            albums.extend(self._extract_albums(data))
 
         logger.info(
             "Retrieving album list - done: found %i albums with %i items",
             len(albums),
-            sum([x["count"] for x in albums.values()]),
+            sum([x["count"] for x in albums]),
         )
         return albums
 

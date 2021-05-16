@@ -16,7 +16,7 @@ Supported destinations for remotes:
 * main local folder
 * other local folder (or locally mounted folder)
 * Google Photo
-* Flickr
+* Flickr (?)
 
 ### Key functionality
 
@@ -81,7 +81,7 @@ $ cp river.conf ~/.config/photoriver2/
 $ vim ~/.config/photoriver2/photoriver2.ini
 ```
 
-Example config with two local remotes
+Example config with two local remotes and one Google Photos remote
 
 ```
 [main]
@@ -94,6 +94,11 @@ folder=/river/base
 [remote2]
 type=local
 folder=/river/locals/other_folder
+
+[remote3]
+type=google
+token_cache=/river/config/token.cache
+google_cache=/river/config/google.cache
 ```
 
 ### Running the service
@@ -106,6 +111,11 @@ $ docker run --rm -it \
 	-v /mnt/other_folder:/river/locals/other_folder \
 	photoriver2
 ```
+
+Google Photos remote will first ask you to authorize its access (by opening the
+provided URL and pasting back the access token provided by Google) and will create
+a token cache file in the specified location based on the data provided via
+OAuth process.
 
 Remove the "dry_run" option when you are sure that the sync will do what you
 want it to do.

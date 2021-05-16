@@ -106,14 +106,14 @@ def test_get_photos_args(kwargs, calls):
 @pytest.mark.parametrize(
     "inputs,albums",
     [
-        ([{}], {}),
-        ([{"nextPageToken": "bar"}, {}], {}),
-        ([{"albums": []}], {}),
+        ([{}], []),
+        ([{"nextPageToken": "bar"}, {}], []),
+        ([{"albums": []}], []),
         (
             [{"albums": [{"id": "123", "title": "Album1", "productUrl": "aurl", "mediaItemsCount": "2"}]}],
-            {
-                "Album1": {"id": "123", "count": 2, "user_url": "aurl"},
-            },
+            [
+                {"name": "Album1", "id": "123", "count": 2, "user_url": "aurl"},
+            ],
         ),
         (
             [
@@ -123,10 +123,10 @@ def test_get_photos_args(kwargs, calls):
                 },
                 {"albums": [{"id": "124", "title": "Album2", "productUrl": "aurl2", "mediaItemsCount": "3"}]},
             ],
-            {
-                "Album1": {"id": "123", "count": 2, "user_url": "aurl"},
-                "Album2": {"id": "124", "count": 3, "user_url": "aurl2"},
-            },
+            [
+                {"name": "Album1", "id": "123", "count": 2, "user_url": "aurl"},
+                {"name": "Album2", "id": "124", "count": 3, "user_url": "aurl2"},
+            ],
         ),
     ],
 )
