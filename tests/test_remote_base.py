@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from photoriver2.remotes import BaseRemote
+from photoriver2.remote_base import BaseRemote
 
 
 def test_init():

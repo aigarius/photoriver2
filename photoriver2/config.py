@@ -2,7 +2,7 @@
 
 import configparser
 
-from photoriver2.remotes import LocalRemote
+from photoriver2.remote_local import LocalRemote
 
 
 def parse_config(config_text=None):

@@ -5,7 +5,7 @@ from unittest.mock import mock_open
 
 import pytest
 
-from photoriver2.remotes import LocalRemote, deconflict
+from photoriver2.remote_local import LocalRemote, deconflict
 
 
 def test_init():
