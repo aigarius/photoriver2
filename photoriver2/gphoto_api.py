@@ -4,6 +4,7 @@ import logging
 import os.path
 
 from io import open
+from datetime import date
 
 import requests
 import six
@@ -122,7 +123,14 @@ class GPhoto:
         return albums
 
     def _load_new_data(self, url, method, payload):
-        feed = getattr(requests, method)(url, params=payload, headers=self.headers).text.encode("utf8")
+        if method == "get":
+            response = requests.get(url, params=payload, headers=self.headers).text.encode("utf8")
+        elif method == "post":
+            response = requests.post(url, data=json.dumps(payload), headers=self.headers)
+        if response.status_code != 200:
+            logger.error("Failed call to '%s' on '%s' with payload '%s'", method, url, payload)
+            response.raise_for_status()
+        feed = response.text.encode("utf8")
         return json.loads(feed)
 
     def _extract_photos(self, data):
@@ -140,8 +148,8 @@ class GPhoto:
             )
         return photos
 
-    def get_photos(self, album_id=None):
-        logger.info("Retrieving album photos for album %s", album_id)
+    def get_photos(self, album_id=None, start_date=None, end_date=None):
+        logger.info("Retrieving photos for album %s or time %s-%s", album_id, start_date, end_date)
         payload = {"pageSize": 100}
         method = "get"
         url = URL_PHOTOS
@@ -149,6 +157,22 @@ class GPhoto:
             payload["albumId"] = album_id
             method = "post"
             url += ":search"
+        elif start_date:
+            method = "post"
+            url += ":search"
+            start_date = {
+                "year": start_date.year,
+                "month": start_date.month,
+                "day": start_date.day,
+            }
+            if not end_date:
+                end_date = date.today()
+            end_date = {
+                "year": end_date.year,
+                "month": end_date.month,
+                "day": end_date.day,
+            }
+            payload["filters"] = {"dateFilter": {"ranges": [{"startDate": start_date, "endDate": end_date}]}}
 
         data = self._load_new_data(url, method, payload)
         photos = self._extract_photos(data)
@@ -158,7 +182,7 @@ class GPhoto:
             photos.extend(self._extract_photos(data))
 
         logger.info(
-            "Retrieving album photos - done: found %i photos",
+            "Retrieving photos - done: found %i photos",
             len(photos),
         )
         return photos

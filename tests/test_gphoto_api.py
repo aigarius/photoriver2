@@ -1,10 +1,11 @@
 """Verify Google Photo API functionality"""
 
-from unittest.mock import patch, Mock
+from datetime import date
+from unittest.mock import patch, Mock, call
 
 import pytest
 
-from photoriver2.gphoto_api import GPhoto
+from photoriver2.gphoto_api import GPhoto, URL_PHOTOS
 
 
 def _get_obj():
@@ -63,6 +64,43 @@ def test_get_photos(inputs, photos):
     _new_data = Mock(side_effect=inputs)
     with patch.object(obj, "_load_new_data", _new_data):
         assert obj.get_photos() == photos
+
+
+@pytest.mark.parametrize(
+    "kwargs,calls",
+    [
+        ({}, [call(URL_PHOTOS, "get", {"pageSize": 100})]),
+        (
+            {"start_date": date(2021, 3, 4), "end_date": date(2021, 3, 7)},
+            [
+                call(
+                    URL_PHOTOS + ":search",
+                    "post",
+                    {
+                        "pageSize": 100,
+                        "filters": {
+                            "dateFilter": {
+                                "ranges": [
+                                    {
+                                        "startDate": {"year": 2021, "month": 3, "day": 4},
+                                        "endDate": {"year": 2021, "month": 3, "day": 7},
+                                    }
+                                ]
+                            }
+                        },
+                    },
+                )
+            ],
+        ),
+    ],
+)
+def test_get_photos_args(kwargs, calls):
+    obj = _get_obj()
+    inputs = [{"mediaItems": [{"id": "123", "filename": "IMG1.JPG"}]}]
+    _new_data = Mock(side_effect=inputs)
+    with patch.object(obj, "_load_new_data", _new_data):
+        obj.get_photos(**kwargs)
+        assert _new_data.call_args_list == calls
 
 
 @pytest.mark.parametrize(
