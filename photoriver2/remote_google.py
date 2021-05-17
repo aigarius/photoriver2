@@ -38,7 +38,9 @@ class GoogleRemote(BaseRemote):
         return sorted(albums, key=lambda x: x["name"])
 
     def _do_photo_updates(self, updates):
-        raise NotImplementedError
+        pass
+        #  raise NotImplementedError
 
     def _do_album_updates(self, updates):
-        raise NotImplementedError
+        pass
+        #  raise NotImplementedError
