@@ -1,5 +1,5 @@
 """Remotes implementation - state of a Google Photo Library"""
-import json
+import pickle
 import logging
 import os
 import time
@@ -26,19 +26,23 @@ class GoogleRemote(BaseRemote):
         new_state = None
         new_state_cache = self.state_file + "_new"
         if os.path.exists(new_state_cache) and os.path.getmtime(new_state_cache) > (time.time() - 45 * 60):
+            logger.info("Tring to load new state from cache")
             try:
                 with open(new_state_cache, "r") as infile:
-                    new_state = json.load(infile)
+                    new_state = pickle.load(infile)
                 logger.info("New state info loaded from cache")
-            except (json.JSONDecodeError, OSError, ValueError, TypeError):
-                pass
+            except (OSError, ValueError, TypeError):
+                logger.exception("Failed to load new state from cache - non-fatal")
         if not new_state:
             new_state = super().get_new_state()
             try:
                 with open(new_state_cache, "w") as outfile:
-                    json.dump(new_state, outfile)
-            except (ValueError, OSError, TypeError):
+                    pickle.dump(new_state, outfile)
+            except (ValueError, OSError, TypeError, AttributeError):
                 logger.exception("Failed to write new state cache - non-fatal")
+        # Add photo data lambdas here to avoid pickling them
+        for photo in new_state["photos"]:
+            photo["data"] = lambda n=self.api, m=photo: n.read_photo(m)
         return new_state
 
     def get_photos(self):
@@ -48,7 +52,8 @@ class GoogleRemote(BaseRemote):
         for photo in photos:
             # pylint: disable=cell-var-from-loop
             photo["modified"] = now
-            photo["data"] = lambda n=self.api, m=photo: n.read_photo(m)
+            # photo["data"] is set in get_new_state() above to this
+            # photo["data"] = lambda n=self.api, m=photo: n.read_photo(m)
             photo["name"] = self._get_name(photo)
         return sorted(photos, key=lambda x: x["name"])
 
@@ -60,6 +65,7 @@ class GoogleRemote(BaseRemote):
     def get_albums(self):
         albums = self.api.get_albums()
         for album in albums:
+            logger.info("Remote %s: Loading photo info of album %s: ", self.name, album["name"])
             album["photos"] = [self._get_name(x) for x in self.api.get_photos(album_id=album["id"])]
         return sorted(albums, key=lambda x: x["name"])
 

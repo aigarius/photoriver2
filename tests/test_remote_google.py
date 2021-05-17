@@ -68,7 +68,6 @@ def test_get_photos(mock_api):
     remote = GoogleRemote(".config")
     data = remote.get_photos()
     for entry in data:
-        del entry["data"]
         del entry["modified"]
     assert data == [
         {
