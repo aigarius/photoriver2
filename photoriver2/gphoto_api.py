@@ -2,6 +2,7 @@
 import json
 import logging
 import os.path
+import time
 
 from io import open
 from datetime import date, datetime, timedelta
@@ -199,6 +200,12 @@ class GPhoto:
             feed = response.text.encode("utf8")
             photo = json.loads(feed)
         response = requests.get(photo["raw"]["baseUrl"] + "=d", headers=self.headers, stream=True)
+        if response.status_code != 200:
+            time.sleep(1)
+            response = requests.get(photo["raw"]["baseUrl"] + "=d", headers=self.headers, stream=True)
+            if response.status_code != 200:
+                time.sleep(1)
+                response = requests.get(photo["raw"]["baseUrl"] + "=d", headers=self.headers, stream=True)
         response.raise_for_status()
         return response.raw
 
