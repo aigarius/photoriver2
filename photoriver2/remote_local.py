@@ -3,6 +3,8 @@ import logging
 import os
 import shutil
 
+import requests
+
 from photoriver2.remote_base import BaseRemote
 
 IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
@@ -100,10 +102,14 @@ class LocalRemote(BaseRemote):
                 if not os.path.exists(self._abs(update["name"])):
                     logger.info("Remote %s: adding photo %s", self.name, update["name"])
                     os.makedirs(self._abs(os.path.dirname(update["name"])), exist_ok=True)
-                    with open(self._abs(update["name"]), "wb") as outfile:
-                        infile = update["data"]()
-                        outfile.write(infile.read())
-                        infile.close()
+                    try:
+                        with open(self._abs(update["name"]), "wb") as outfile:
+                            infile = update["data"]()
+                            outfile.write(infile.read())
+                            infile.close()
+                    except (requests.exceptions.HTTPError, OSError, IOError):
+                        os.remove(self._abs(update["name"]))
+                        raise
             elif update["action"] == "del":
                 if os.path.exists(self._abs(update["name"])):
                     logger.info("Remote %s: deleting photo %s", self.name, update["name"])
