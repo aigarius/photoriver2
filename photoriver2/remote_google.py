@@ -1,5 +1,8 @@
 """Remotes implementation - state of a Google Photo Library"""
+import json
 import logging
+import os
+import time
 
 from datetime import datetime
 
@@ -17,6 +20,26 @@ class GoogleRemote(BaseRemote):
     def __init__(self, token_cache, *args, **kwargs):
         self.api = GPhoto(token_cache)
         super().__init__(*args, **kwargs)
+
+    def get_new_state(self):
+        """Cache new state for 45 minutes"""
+        new_state = None
+        new_state_cache = self.state_file + "_new"
+        if os.path.exists(new_state_cache) and os.path.getmtime(new_state_cache) > (time.time() - 45 * 60):
+            try:
+                with open(new_state_cache, "r") as infile:
+                    new_state = json.load(infile)
+                logger.info("New state info loaded from cache")
+            except (json.JSONDecodeError, OSError, ValueError, TypeError):
+                pass
+        if not new_state:
+            new_state = super().get_new_state()
+            try:
+                with open(new_state_cache, "w") as outfile:
+                    json.dump(new_state, outfile)
+            except (ValueError, OSError, TypeError):
+                logger.exception("Failed to write new state cache - non-fatal")
+        return new_state
 
     def get_photos(self):
         photos = self.api.get_photos()
