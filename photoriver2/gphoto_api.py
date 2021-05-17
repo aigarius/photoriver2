@@ -198,7 +198,7 @@ class GPhoto:
             response.raise_for_status()
             feed = response.text.encode("utf8")
             photo = json.loads(feed)
-        response = requests.get(photo["baseUrl"] + "=d", headers=self.headers, stream=True)
+        response = requests.get(photo["raw"]["baseUrl"] + "=d", headers=self.headers, stream=True)
         response.raise_for_status()
         return response.raw
 
