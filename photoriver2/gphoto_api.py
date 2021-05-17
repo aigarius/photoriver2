@@ -4,7 +4,7 @@ import logging
 import os.path
 
 from io import open
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import requests
 import six
@@ -186,6 +186,18 @@ class GPhoto:
             len(photos),
         )
         return photos
+
+    def read_photo(self, photo):
+        """Return a file-like object that can be read() to get photo file data"""
+        if datetime.now() - photo["modified"] > timedelta(minutes=59):
+            logger.warning("Media URL expired, refreshing")
+            response = requests.get(URL_PHOTOS + "/" + photo["id"], headers=self.headers)
+            response.raise_for_status()
+            feed = response.text.encode("utf8")
+            photo = json.loads(feed)
+        response = requests.get(photo["baseUrl"] + "=d", headers=self.headers, stream=True)
+        response.raise_for_status()
+        return response.raw
 
     def create_album(self, title):
         raise NotImplementedError
