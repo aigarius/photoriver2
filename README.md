@@ -48,6 +48,8 @@ all photos appearing on that node automatically flowing into a pre-configured
 album (and synced to all other nodes), potentially with extra processing, like
 adding EXIF information about the event.
 
+* Preserve ordering of photos in an album
+
 ### Technical requirements
 
 * 100% Python

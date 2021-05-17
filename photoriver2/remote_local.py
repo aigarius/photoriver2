@@ -93,6 +93,7 @@ class LocalRemote(BaseRemote):
                     self._abs(afix["name"]),
                 )
 
+    # TODO figure out solution to match 2008/8/3/IMG1232.JPG to 2008/08/03/IMG1232.JPG
     def _do_photo_updates(self, updates):
         for update in updates:
             if update["action"] == "new":
