@@ -124,7 +124,7 @@ class GPhoto:
 
     def _load_new_data(self, url, method, payload):
         if method == "get":
-            response = requests.get(url, params=payload, headers=self.headers).text.encode("utf8")
+            response = requests.get(url, params=payload, headers=self.headers)
         elif method == "post":
             response = requests.post(url, data=json.dumps(payload), headers=self.headers)
         if response.status_code != 200:
@@ -134,9 +134,11 @@ class GPhoto:
         return json.loads(feed)
 
     def _extract_photos(self, data):
-        logger.info("Received %i items", len(data.get("mediaItems", [])))
+        logger.debug("Received %i items", len(data.get("mediaItems", [])))
         photos = []
         for entry in data.get("mediaItems", []):
+            if not entry.get("mediaType", "image/jpeg").startswith("image"):
+                continue
             logger.debug("Processing: %s", entry)
             photos.append(
                 {
@@ -180,6 +182,7 @@ class GPhoto:
             payload["page_token"] = data["nextPageToken"]
             data = self._load_new_data(url, method, payload)
             photos.extend(self._extract_photos(data))
+            logger.info("Total photos now retrieved: %s", len(photos))
 
         logger.info(
             "Retrieving photos - done: found %i photos",

@@ -98,14 +98,13 @@ folder=/river/locals/other_folder
 [remote3]
 type=google
 token_cache=/river/config/token.cache
-google_cache=/river/config/google.cache
 ```
 
 ### Running the service
 
 ```bash
 $ docker build -t photoriver2 .
-$ docker run --rm -it \
+$ docker run --rm -it --user ${USER} \
 	-v /home/${USER}/Pictures:/river/base \
 	-v /home/${USER}/.config/photoriver2:/river/config \
 	-v /mnt/other_folder:/river/locals/other_folder \
