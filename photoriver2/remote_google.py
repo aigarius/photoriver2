@@ -1,9 +1,12 @@
 """Remotes implementation - state of a Google Photo Library"""
+import logging
 
 from datetime import datetime
 
 from photoriver2.remote_base import BaseRemote
 from photoriver2.gphoto_api import GPhoto
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleRemote(BaseRemote):

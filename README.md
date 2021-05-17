@@ -87,15 +87,15 @@ Example config with two local remotes and one Google Photos remote
 [main]
 dry_run=true
 
-[remote1]
+[local_folder]
 type=local
 folder=/river/base
 
-[remote2]
+[usb_drive]
 type=local
 folder=/river/locals/other_folder
 
-[remote3]
+[gphoto]
 type=google
 token_cache=/river/config/token.cache
 ```
@@ -104,7 +104,7 @@ token_cache=/river/config/token.cache
 
 ```bash
 $ docker build -t photoriver2 .
-$ docker run --rm -it --user ${USER} \
+$ docker run --rm -it --user ${UID} \
 	-v /home/${USER}/Pictures:/river/base \
 	-v /home/${USER}/.config/photoriver2:/river/config \
 	-v /mnt/other_folder:/river/locals/other_folder \

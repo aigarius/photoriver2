@@ -1,8 +1,11 @@
 """Remotes implementation - state of an instance of a photo collection"""
 import json
+import logging
 import os
 
 IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
+
+logger = logging.getLogger(__name__)
 
 
 class BaseRemote:
@@ -64,6 +67,7 @@ class BaseRemote:
         updates = []
         for aphoto in other.new_state["photos"]:
             if not any(x["name"] == aphoto["name"] for x in self.new_state["photos"]):
+                logger.info("Remote %s: new photo %s found in %s", self.name, aphoto["name"], other.name)
                 update = aphoto.copy()
                 update["action"] = "new"
                 updates.append(update)
@@ -71,6 +75,7 @@ class BaseRemote:
         new_albums = set()
         for album in other.new_state["albums"]:
             if not any(x["name"] == album["name"] for x in self.new_state["albums"]):
+                logger.info("Remote %s: new album %s found in %s", self.name, album["name"], other.name)
                 update = album.copy()
                 update["action"] = "new_album"
                 updates.append(update)
@@ -82,6 +87,9 @@ class BaseRemote:
             old_album = [x for x in self.new_state["albums"] if x["name"] == album["name"]][0]
             new_photos = set(album["photos"]) - set(old_album["photos"])
             for new_photo in new_photos:
+                logger.info(
+                    "Remote %s: new photo %s in album %s found in %s", self.name, new_photo, album["name"], other.name
+                )
                 updates.append(
                     {
                         "action": "new_album_photo",
@@ -97,6 +105,7 @@ class BaseRemote:
         deleted = set()
         for aphoto in self.old_state["photos"]:
             if not any(x["name"] == aphoto["name"] for x in self.new_state["photos"]):
+                logger.info("Remote %s: photo %s was deleted", self.name, aphoto["name"])
                 update = aphoto.copy()
                 update["action"] = "del"
                 updates.append(update)
@@ -105,6 +114,7 @@ class BaseRemote:
         added = set()
         for aphoto in self.new_state["photos"]:
             if not any(x["name"] == aphoto["name"] for x in self.old_state["photos"]):
+                logger.info("Remote %s: photo %s was added", self.name, aphoto["name"])
                 update = aphoto.copy()
                 update["action"] = "new"
                 updates.append(update)
@@ -119,6 +129,7 @@ class BaseRemote:
             update["new_name"] = [
                 x for x in moved_updates if x["action"] == "new" and os.path.basename(x["name"]) == name
             ][0]["name"]
+            logger.info("Remote %s: photo %s was moved to %s", self.name, update["name"], update["new_name"])
             updates.append(update)
         return updates
 
@@ -128,6 +139,7 @@ class BaseRemote:
         new_albums = set()
         for album in self.new_state["albums"]:
             if not any(x["name"] == album["name"] for x in self.old_state["albums"]):
+                logger.info("Remote %s: album %s was added", self.name, album["name"])
                 update = album.copy()
                 update["action"] = "new_album"
                 updates.append(update)
@@ -136,6 +148,7 @@ class BaseRemote:
         del_albums = set()
         for album in self.old_state["albums"]:
             if not any(x["name"] == album["name"] for x in self.new_state["albums"]):
+                logger.info("Remote %s: album %s was deleted", self.name, album["name"])
                 update = album.copy()
                 update["action"] = "del_album"
                 del update["photos"]
@@ -149,6 +162,7 @@ class BaseRemote:
             new_photos = set(album["photos"]) - set(old_album["photos"])
             del_photos = set(old_album["photos"]) - set(album["photos"])
             for new_photo in new_photos:
+                logger.info("Remote %s: photo %s was added to album %s", self.name, new_photo, album["name"])
                 updates.append(
                     {
                         "action": "new_album_photo",
@@ -157,6 +171,7 @@ class BaseRemote:
                     }
                 )
             for del_photo in del_photos:
+                logger.info("Remote %s: photo %s was deleted from album %s", self.name, del_photo, album["name"])
                 updates.append(
                     {
                         "action": "del_album_photo",
