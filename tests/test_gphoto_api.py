@@ -63,7 +63,7 @@ def test_get_photos(inputs, photos):
     obj = _get_obj()
     _new_data = Mock(side_effect=inputs)
     with patch.object(obj, "_load_new_data", _new_data):
-        assert obj.get_photos() == photos
+        assert list(obj.get_photos()) == photos
 
 
 @pytest.mark.parametrize(
@@ -99,7 +99,7 @@ def test_get_photos_args(kwargs, calls):
     inputs = [{"mediaItems": [{"id": "123", "filename": "IMG1.JPG"}]}]
     _new_data = Mock(side_effect=inputs)
     with patch.object(obj, "_load_new_data", _new_data):
-        obj.get_photos(**kwargs)
+        list(obj.get_photos(**kwargs))
         assert _new_data.call_args_list == calls
 
 

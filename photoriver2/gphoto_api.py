@@ -179,21 +179,24 @@ class GPhoto:
 
         data = self._load_new_data(url, method, payload)
         photos = self._extract_photos(data)
+        total_count = len(photos)
+        yield from photos
         while "nextPageToken" in data:
             payload["page_token"] = data["nextPageToken"]
             data = self._load_new_data(url, method, payload)
-            photos.extend(self._extract_photos(data))
-            logger.info("Total photos now retrieved: %s", len(photos))
+            photos = self._extract_photos(data)
+            total_count += len(photos)
+            logger.info("Total photos now retrieved: %s", total_count)
+            yield from photos
 
         logger.info(
             "Retrieving photos - done: found %i photos",
-            len(photos),
+            total_count,
         )
-        return photos
 
     def read_photo(self, photo):
         """Return a file-like object that can be read() to get photo file data"""
-        if datetime.now() - photo["modified"] > timedelta(minutes=59):
+        if datetime.now() - photo.get("modified", datetime.now()) > timedelta(minutes=59):
             logger.warning("Media URL expired, refreshing")
             response = requests.get(URL_PHOTOS + "/" + photo["id"], headers=self.headers)
             response.raise_for_status()

@@ -57,7 +57,8 @@ class GoogleRemote(BaseRemote):
             photo["name"] = self._get_name(photo)
         return sorted(photos, key=lambda x: x["name"])
 
-    def _get_name(self, photo):
+    @staticmethod
+    def _get_name(photo):
         filename = photo["filename"]
         path_date = datetime.strptime(photo["raw"]["mediaMetadata"]["creationTime"][:18], "%Y-%m-%dT%H:%M:%S")
         return "{:04d}/{:02d}/{:02d}/{}".format(path_date.year, path_date.month, path_date.day, filename)
