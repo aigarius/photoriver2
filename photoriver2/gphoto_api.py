@@ -215,5 +215,42 @@ class GPhoto:
     def create_album(self, title):
         raise NotImplementedError
 
-    def upload(self, photofile, filename, album_id):
-        raise NotImplementedError
+    def upload_media(self, filename):
+        """Do the media upload step of adding a photo to GPhoto Library - returns a token for batch media creation"""
+        headers = {
+            "Content-type": "application/octet-stream",
+            "X-Goog-Upload-Content-Type": "image/jpeg",
+            "X-Goog-Upload-Protocol": "raw",
+        }
+        headers.update(self.headers)
+        with open(filename, "rb") as infile:
+            response = requests.post(
+                "https://photoslibrary.googleapis.com/v1/uploads", headers=headers, data=infile.read()
+            )
+        response.raise_for_status()
+        return response.text
+
+    def create_media(self, data_items):
+        """Batch media creation - takes up to 50 items of (filename, upload_token) and creates all at once"""
+        data = {
+            "newMediaItems": [],
+        }
+        for data_item in data_items:
+            data["newMediaItems"].append(
+                {
+                    "simpleMediaItem": {
+                        "fileName": os.path.basename(data_item[0]),
+                        "uploadToken": data_item[1],
+                    }
+                }
+            )
+        response = requests.post(
+            "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate", json=data, headers=self.headers
+        )
+        if response.status_code == 207:
+            for item in response.json.get("newMediaItemResults", []):
+                if item.get("status", {}).get("message", "Failed") != "Success":
+                    logger.error("Problem with upload: %s", item)
+                    bad_items = [x[0] for x in data_items if x[1] == item.get("uploadToken", "xxx")]
+                    logger.error("Files missed uploads: %s", bad_items)
+        response.raise_for_status()
