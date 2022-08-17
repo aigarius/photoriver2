@@ -9,7 +9,7 @@ from datetime import datetime
 
 import requests
 
-from photoriver2.gphoto_api import GPhoto
+from photoriver2.config import parse_config, init_remotes
 
 logger = logging.getLogger("gphoto_batch_download")
 
@@ -54,12 +54,17 @@ def start_dowloaders():
 
 
 def main():
-    logger.info("Connecting to Google")
-    obj = GPhoto()
+    logger.info("Parsing config")
+    config_data = parse_config()
+    logger.info("Starting all remotes")
+    remotes = init_remotes(config_data)
+    # Download will happen to a "remote" called "local"
+    os.cwd(remotes["local"].folder)
     logger.info("Connected, starting downloaders")
     down_queue = start_dowloaders()
     logger.info("Getting photo list")
-    for aphoto in obj.get_photos():
+    # Download will happen from a "remote" called "gphoto"
+    for aphoto in remotes["gphoto"].get_photos():
         filename = aphoto["filename"]
         path_date = datetime.strptime(aphoto["raw"]["mediaMetadata"]["creationTime"][:18], "%Y-%m-%dT%H:%M:%S")
         local_name = f"{path_date.year:4d}/{path_date.month:2d}/{path_date.day:2d}/{filename}"
@@ -72,7 +77,7 @@ def main():
             continue
         os.makedirs(os.path.dirname(local_name), exist_ok=True)
         logger.info("Queueing photo: %s", local_name)
-        down_queue.put((obj, aphoto, local_name))
+        down_queue.put((remotes["gphoto"], aphoto, local_name))
         logger.info("Queueing photo done: %s", local_name)
 
     logger.info("Photo list complete, waiting for downloads to finish")

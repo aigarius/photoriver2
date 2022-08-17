@@ -9,7 +9,7 @@ from datetime import datetime
 
 import requests
 
-from photoriver2.gphoto_api import GPhoto
+from photoriver2.config import parse_config, init_remotes
 
 logger = logging.getLogger("gphoto_batch_upload")
 
@@ -68,11 +68,16 @@ def start_uploaders(create_queue, api):
 
 
 def main():
-    logger.info("Connecting to Google")
-    obj = GPhoto()
+    logger.info("Parsing config")
+    config_data = parse_config()
+    logger.info("Starting all remotes")
+    remotes = init_remotes(config_data)
+    # Download will happen to a "remote" called "local"
+    os.cwd(remotes["local"].folder)
     logger.info("Connected, starting uploaders")
-    create_queue, stopping_flag = start_create_thread(obj)
-    up_queue = start_uploaders(create_queue, obj)
+    # Download will happen from a "remote" called "gphoto"
+    create_queue, stopping_flag = start_create_thread(remotes["gphoto"])
+    up_queue = start_uploaders(create_queue, remotes["gphoto"])
     logger.info("Getting local photo list")
 
     local_photos = set()
@@ -87,10 +92,11 @@ def main():
         )
     logger.info("Found %s photos locally", len(local_photos))
 
-    logger.info("Getting photo list")
-    for aphoto in obj.get_photos():
+    logger.info("Getting remote photo list")
+    for aphoto in remotes["gphoto"].get_photos():
         filename = aphoto["filename"]
         path_date = datetime.strptime(aphoto["raw"]["mediaMetadata"]["creationTime"][:18], "%Y-%m-%dT%H:%M:%S")
+        # Remove photos found in the GPhoto remote from the upload list
         local_name = f"{path_date.year:4d}/{path_date.month:2d}/{path_date.day:2d}/{filename}"
         local_photos.discard(local_name)
         local_name = f"{path_date.year:04d}/{path_date.month:02d}/{path_date.day:02d}/{filename}"
