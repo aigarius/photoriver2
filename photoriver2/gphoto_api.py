@@ -8,7 +8,6 @@ from io import open
 from datetime import date, datetime, timedelta
 
 import requests
-import six
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class GPhoto:
             url = "{}?client_id={}&redirect_uri={}&scope={}&response_type=code".format(
                 AUTH_URL, CLIENT_ID, REDIRECT_URI, AUTH_SCOPE
             )
-            code = six.moves.input("URL: {0}\nPaste authorization code: ".format(url))
+            code = input(f"URL: {url}\nPaste authorization code: ")
             token_json = requests.post(
                 TOKEN_URI,
                 data={
