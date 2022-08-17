@@ -11,5 +11,8 @@ disable=missing-module-docstring,
         useless-suppression,
         deprecated-pragma,
         no-self-use,
-        abstract-method
+        abstract-method,
+        consider-using-dict-items,
+        unspecified-encoding,
+        fixme
 

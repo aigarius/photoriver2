@@ -8,11 +8,11 @@ nox.options.sessions = ["tests"]
 def tests(session):
     session.install("pytest")
     session.install("pytest-pylint")
-    session.install("pytest-flake8")
-    session.install("flake8-black")
     session.install("nox")
+    session.install("black")
     session.install(".")
-    session.run("pytest", "--flake8", "--pylint", "-vv")
+    session.run("pytest", "--pylint", "-vv")
+    session.run("black", "-l", "119", ".")
 
 
 @nox.session
@@ -28,7 +28,6 @@ def docker_tests(session):
         "--workdir",
         "/river/code",
         "photoriver2",
-        "--flake8",
         "--pylint",
         "-vv",
         external=True,
