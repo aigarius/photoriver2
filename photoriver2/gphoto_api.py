@@ -30,6 +30,7 @@ class GPhoto:
         self.token = None
         self.refresh_token = None
 
+        logger.debug("Using token cache: %s", token_cache)
         if not self._refresh_token():
             # If we don't have a cached token - get an authorization
             url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={AUTH_SCOPE}&response_type=code"
@@ -53,7 +54,7 @@ class GPhoto:
         self._read_refresh_token()
         if not self.refresh_token:
             return False
-        token_json = requests.post(
+        token_response = requests.post(
             TOKEN_URI,
             data={
                 "refresh_token": self.refresh_token,
@@ -61,7 +62,11 @@ class GPhoto:
                 "client_secret": CLIENT_SECRET,
                 "grant_type": "refresh_token",
             },
-        ).json()
+        )
+        token_json = token_response.json()
+        if "access_token" not in token_json:
+            logger.warning("Refresh token in the cache not accepted by Google")
+            return False
         self.token = token_json["access_token"]
         return True
 
