@@ -41,7 +41,7 @@ class LocalRemote(BaseRemote):
                 name = os.path.relpath(os.path.join(root, afile), self.folder)
                 if "." in name and name.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
                     if not os.path.islink(os.path.join(root, afile)):
-                        # pylint: disable=cell-var-from-loop
+                        # pylint: disable=cell-var-from-loop,consider-using-with
                         photos.append({"name": name, "data": lambda n=os.path.join(root, afile): open(n, "rb")})
         return sorted(photos, key=lambda x: x["name"])
 

@@ -121,7 +121,7 @@ class GPhoto:
         logger.info(
             "Retrieving album list - done: found %i albums with %i items",
             len(albums),
-            sum([x["count"] for x in albums]),
+            sum(x["count"] for x in albums),
         )
         return albums
 
