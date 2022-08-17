@@ -91,9 +91,9 @@ def main():
     for aphoto in obj.get_photos():
         filename = aphoto["filename"]
         path_date = datetime.strptime(aphoto["raw"]["mediaMetadata"]["creationTime"][:18], "%Y-%m-%dT%H:%M:%S")
-        local_name = "{:4d}/{:2d}/{:2d}/{}".format(path_date.year, path_date.month, path_date.day, filename)
+        local_name = f"{path_date.year:4d}/{path_date.month:2d}/{path_date.day:2d}/{filename}"
         local_photos.discard(local_name)
-        local_name = "{:04d}/{:02d}/{:02d}/{}".format(path_date.year, path_date.month, path_date.day, filename)
+        local_name = f"{path_date.year:04d}/{path_date.month:02d}/{path_date.day:02d}/{filename}"
         local_photos.discard(local_name)
     logger.info("Photo list complete, %s photos found to upload", len(local_photos))
 

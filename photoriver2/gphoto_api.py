@@ -32,9 +32,7 @@ class GPhoto:
 
         if not self._refresh_token():
             # If we don't have a cached token - get an authorization
-            url = "{}?client_id={}&redirect_uri={}&scope={}&response_type=code".format(
-                AUTH_URL, CLIENT_ID, REDIRECT_URI, AUTH_SCOPE
-            )
+            url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={AUTH_SCOPE}&response_type=code"
             code = input(f"URL: {url}\nPaste authorization code: ")
             token_json = requests.post(
                 TOKEN_URI,
@@ -49,7 +47,7 @@ class GPhoto:
             self.token = token_json["access_token"]
             self.refresh_token = token_json["refresh_token"]
             self._write_refresh_token()
-        self.headers = {"Authorization": "Bearer {}".format(self.token)}
+        self.headers = {"Authorization": f"Bearer {self.token}"}
 
     def _refresh_token(self):
         self._read_refresh_token()

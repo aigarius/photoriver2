@@ -61,7 +61,8 @@ class GoogleRemote(BaseRemote):
     def _get_name(photo):
         filename = photo["filename"]
         path_date = datetime.strptime(photo["raw"]["mediaMetadata"]["creationTime"][:18], "%Y-%m-%dT%H:%M:%S")
-        return "{:04d}/{:02d}/{:02d}/{}".format(path_date.year, path_date.month, path_date.day, filename)
+        local_name = f"{path_date.year:04d}/{path_date.month:02d}/{path_date.day:02d}/{filename}"
+        return local_name
 
     def get_albums(self):
         albums = self.api.get_albums()
