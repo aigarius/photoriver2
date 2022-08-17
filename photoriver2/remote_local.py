@@ -121,7 +121,7 @@ class LocalRemote(BaseRemote):
                         os.makedirs(self._abs(os.path.dirname(update["new_name"])), exist_ok=True)
                         os.rename(self._abs(update["name"]), self._abs(update["new_name"]))
 
-    def _do_album_updates(self, updates):
+    def _do_album_updates(self, updates):  # pylint: disable=too-many-branches
         for update in updates:
             if update["action"] == "new_album":
                 album_path = self._abs(os.path.join("albums", update["name"]))
@@ -129,10 +129,12 @@ class LocalRemote(BaseRemote):
                     logger.info("Remote %s: creating album %s", self.name, update["name"])
                     os.makedirs(album_path)
                     for aphoto in update["photos"]:
-                        os.symlink(
-                            os.path.relpath(self._abs(aphoto), album_path),
-                            os.path.join(album_path, os.path.basename(aphoto)),
-                        )
+                        if not os.path.exists(os.path.join(album_path, os.path.basename(aphoto))):
+                            # TODO: there could be real situations where basename of a photo in album is duplicate
+                            os.symlink(
+                                os.path.relpath(self._abs(aphoto), album_path),
+                                os.path.join(album_path, os.path.basename(aphoto)),
+                            )
             elif update["action"] == "del_album":
                 album_path = self._abs(os.path.join("albums", update["name"]))
                 logger.info("Remote %s: deleting album %s", self.name, update["name"])
