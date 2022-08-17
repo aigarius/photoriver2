@@ -28,15 +28,15 @@ class GoogleRemote(BaseRemote):
         if os.path.exists(new_state_cache) and os.path.getmtime(new_state_cache) > (time.time() - 45 * 60):
             logger.info("Tring to load new state from cache")
             try:
-                with open(new_state_cache, "r") as infile:
+                with open(new_state_cache, "rb") as infile:
                     new_state = pickle.load(infile)
                 logger.info("New state info loaded from cache")
-            except (OSError, ValueError, TypeError):
+            except (OSError, ValueError, TypeError, EOFError):
                 logger.exception("Failed to load new state from cache - non-fatal")
         if not new_state:
             new_state = super().get_new_state()
             try:
-                with open(new_state_cache, "w") as outfile:
+                with open(new_state_cache, "wb") as outfile:
                     pickle.dump(new_state, outfile)
             except (ValueError, OSError, TypeError, AttributeError):
                 logger.exception("Failed to write new state cache - non-fatal")
