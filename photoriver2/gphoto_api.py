@@ -22,6 +22,11 @@ URL_ALBUMS = "https://photoslibrary.googleapis.com/v1/albums"
 AUTH_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
 
 
+def chunk(alist, size):
+    """Splits a long list into multiple lists of no longer than size"""
+    return [alist[i : i + size] for i in range(0, len(alist), size)]
+
+
 class GPhoto:
     """Implement the Google Photo Library API"""
 
@@ -149,6 +154,7 @@ class GPhoto:
                     "id": entry["id"],
                     "description": entry.get("description", entry["filename"]),
                     "raw": entry,
+                    "modified": datetime.now(),
                 }
             )
         return photos
@@ -214,11 +220,45 @@ class GPhoto:
         response.raise_for_status()
         return response.raw
 
+    def download_photo(self, photo, filename):
+        logger.info("Starting download of photo to %s", filename)
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with open(filename, "wb") as outfile:
+            outfile.write(self.read_photo(photo).read())
+        logger.info("Done with download of photo to %s", filename)
+
+    def batch_downloads(self, filenames_and_photos):
+        """Given a list of (photo, filename) downloads the photos as a batch"""
+        logger.info("Starting batch download of %s images", len(filenames_and_photos))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            upload_tokens = list(executor.map(self.download_photo, filenames_and_photos))
+        logger.info("Batch download completed")
+
     def create_album(self, title):
-        raise NotImplementedError
+        response = requests.post(URL_ALBUMS, data=json.dumps({"album": {"title": title}}))
+        response.raise_for_status()
+        feed = response.text.encode("utf8")
+        return json.loads(feed)
+
+    def add_to_album(self, album_id, media_items):
+        data = {"mediaItemIds": list(media_items)}
+        response = requests.post(URL_ALBUMS + "/" + album_id + ":batchAddMediaItems", data=json.dumps(data))
+        response.raise_for_status()
+        feed = response.text.encode("utf8")
+        return json.loads(feed)
+
+    def batch_upload(self, filenames, album_id=None):
+        logger.info("Starting batch upload of %s images to album %s", len(filenames), album_id)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            upload_tokens = list(executor.map(self.upload_media, filenames))
+        for i, achunk in enumerate(chunk(upload_tokens, 50)):
+            logger.info("Creating media from uploaded data: %s-%s/%s)", i * 50, i * 50 + len(achunk), len(filenames))
+            create_media(achunk, album_id)
+        logger.info("Batch upload completed")
 
     def upload_media(self, filename):
         """Do the media upload step of adding a photo to GPhoto Library - returns a token for batch media creation"""
+        logger.info("Uploading file %s starting", filename)
         headers = {
             "Content-type": "application/octet-stream",
             "X-Goog-Upload-Content-Type": "image/jpeg",
@@ -230,13 +270,16 @@ class GPhoto:
                 "https://photoslibrary.googleapis.com/v1/uploads", headers=headers, data=infile.read()
             )
         response.raise_for_status()
-        return response.text
+        logger.info("Uploading file %s done", filename)
+        return (filename, response.text)
 
-    def create_media(self, data_items):
+    def create_media(self, data_items, album_id=None):
         """Batch media creation - takes up to 50 items of (filename, upload_token) and creates all at once"""
         data = {
             "newMediaItems": [],
         }
+        if album_id:
+            data["albumId"] = album_id
         for data_item in data_items:
             data["newMediaItems"].append(
                 {

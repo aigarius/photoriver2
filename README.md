@@ -22,23 +22,19 @@ Supported destinations for remotes:
 
 * Runnable in Docker on any local setup (including NAS supporting Docker, such
     as TerraMaster F2-221)
-* On each run all configured remotes get synced to the same state (photos
-    added or deleted to any remote will be added to or deleted from all others)
+* On each run all configured remotes get synced to the same state 
+* In default state deletes are NOT propogated, so to really delete a photo it 
+  must be deleted from all remotes between two sync runs
 * State changes can be checked before application with "--dry-run" option
-* Service remembers previous state of each remote in order to figure out
-    relevant state changes
+* Service remembers previous state of each remote in order to speed up updates
 * A remote may have a blacklist matching a large part of the collection (to
-    save space) - changes in blacklisted files/folders are ignored. Blacklisted
-    files and folders can be deleted with "--delete-blacklisted" option
-* A remote may be marked as "archive" - no delete changes will be executed there
-    unless explicitly requested with "--delete-from-archive"
-* Local file and folder structure is retained
-* Photos added via remote services get synced to a predetermined local structure
-    with year/month folders
-* Remote service albums get represented by local folders in a special subfolder
-    and use symlinks to year/month storage to avoid double disk usage
+    save space) - changes in blacklisted files/folders are ignored.
+* Photos get normalized to a predetermined local structure with year/month/day 
+  folders
+* Albums get represented by local folders in a special subfolder and use symlinks 
+  to year/month/day storage to avoid double disk usage
 * Adding files to a local album folder would add them to the same album on the
-    service (and move local file to year/month storage with symlink left behind)
+    service (and move local file to year/month/day storage with symlink left behind)
 
 ### Future extentions
 
@@ -86,20 +82,18 @@ $ vim ~/.config/photoriver2/photoriver2.ini
 Example config with two local remotes and one Google Photos remote
 
 ```
-[main]
-dry_run=true
-
-[local_folder]
+[base]
 type=local
 folder=/river/base
 
 [usb_drive]
 type=local
 folder=/river/locals/other_folder
+blacklist=19*,200*,201*,2020*,2021*
 
 [gphoto]
 type=google
-token_cache=/river/config/token.cache
+token_cache=mytoken.cache
 ```
 
 ### Running the service
@@ -110,13 +104,13 @@ $ docker run --rm -it --user ${UID} \
 	-v /home/${USER}/Pictures:/river/base \
 	-v /home/${USER}/.config/photoriver2:/river/config \
 	-v /mnt/other_folder:/river/locals/other_folder \
-	photoriver2
+	photoriver2 --dry-run
 ```
 
 Google Photos remote will first ask you to authorize its access (by opening the
 provided URL and pasting back the access token provided by Google) and will create
-a token cache file in the specified location based on the data provided via
+a token cache file in the specified file in config folder based on the data provided via
 OAuth process.
 
-Remove the "dry_run" option when you are sure that the sync will do what you
+Remove the "--dry-run" option when you are sure that the sync will do what you
 want it to do.

@@ -1,58 +1,85 @@
 #!/usr/bin/env python3
+import argparse
 import logging
 
 from photoriver2.config import parse_config, init_remotes
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("photoriver2")
 
 
-# pylint: disable=too-many-branches
+def parse_args():
+    parser = argparse.ArgumentParser(description="Photoriver2 photo sync program")
+
+    parser.add_argument("--dry-run", action="store_true", help="Do not do any photo changs, print actions to be taken")
+    parser.add_argument("--init-only", action="store_true", help="Stop after connecting to all remotes")
+    parser.add_argument("--sync-only", action="store_true", help="Stop after fetching new state from all remotes")
+    parser.add_argument("--skip-sync", action="store_true", help="Skip fetching new state from all remotes")
+    parser.add_argument("--fixes-only", action="store_true", help="Stop after applying normalising fixes")
+    parser.add_argument("--no-state-cache", action="store_true", help="Ignore cached state from all remotes")
+    parser.add_argument("--pull-only", action="store_true", help="Only pull missing photos from other remotes to base")
+    parser.add_argument("--push-only", action="store_true", help="Only push missing photos to other remotes from base")
+
+    return parser.parse_args()
+
+
 def main():
-    """Run the normal process"""
+    options = parse_args()
     logger.info("Parsing config")
-    config_data = parse_config()
+    if os.path.exists("/river/config"):
+        config_path = "/river/config"
+    elif os.path.exists(os.path.expanduser("~/.config/photoriver2")):
+        config_path = os.path.expanduser("~/.config/photoriver2")
+    config_data = parse_config(config_path)
     logger.info("Starting all remotes")
     remotes = init_remotes(config_data)
+    if options.init_only:
+        logger.info("Init complete - exiting")
+        return
     logger.info("Getting new state of all remotes")
+    if not options.skip_sync:
+        for remote in remotes:
+            logger.info("Getting new state for remote %s", remote)
+            remotes[remote].get_new_state(no_state_cache=options.no_state_cache)
+    if options.sync_only:
+        logger.info("State sync complete - exiting")
+        return
     for remote in remotes:
-        logger.info("Getting fixes for remote %s", remote)
+        logger.info("Fixes for remote %s", remote)
         fixes = remotes[remote].get_fixes()
-        if config_data["options"]["dry_run"]:
+        if options.dry_run:
             print(fixes)
         else:
             remotes[remote].do_fixes(fixes)
-        logger.info("Getting new state for remote %s", remote)
-        remotes[remote].get_new_state()
-    logger.info("Finding updates for all remotes")
-    updates = []
-    for remote in remotes:
-        updates.extend(remotes[remote].get_updates())
-    logger.info("Finding updates - done")
-    if config_data["options"]["dry_run"]:
-        print(updates)
-    else:
+    if options.sync_only:
+        logger.info("State sync complete - exiting")
+        return
+    if not options.push_only:
+        logger.info("Starting pulling new photos to base from remotes")
         for remote in remotes:
-            logger.info("Applying updates to remote %s", remote)
-            remotes[remote].do_updates(updates)
-    logger.info("Calculating all merges")
-    for remote1 in remotes:
-        for remote2 in remotes:
-            if remote1 == remote2:
+            if remote == "base":
                 continue
-            logger.info("Finding merges for %s to %s", remote1, remote2)
-            merges = remotes[remote1].get_merge_updates(remotes[remote2])
+            logger.info("Finding pull merges for %s", remote)
+            merges = remotes["base"].get_merge_updates(remotes[remote])
             if config_data["options"]["dry_run"]:
                 print(merges)
             else:
-                logger.info("Applying merges to %s", remote1)
-                remotes[remote1].do_updates(merges)
-    logger.info("Applying all merges - done")
-    logger.info("Saving new state")
-    if not config_data["options"]["dry_run"]:
+                logger.info("Applying pull merges from %s to base", remote)
+                remotes["base"].do_updates(merges)
+        logger.info("Applying all pull merges - done")
+    if not options.pull_only:
+        logger.info("Starting pushing new photos from base to remotes")
         for remote in remotes:
-            remotes[remote].save_new_state()
-    logger.info("Saving new state - done")
-    logger.info("All sync done")
+            if remote == "base":
+                continue
+            logger.info("Finding push merges for %s", remote)
+            merges = remotes[remote].get_merge_updates(remotes["base"])
+            if config_data["options"]["dry_run"]:
+                print(merges)
+            else:
+                logger.info("Applying pull merges to %s from base", remote)
+                remotes[remote].do_updates(merges)
+        logger.info("Applying all pull merges - done")
+    logger.info("Sync completed")
 
 
 if __name__ == "__main__":

@@ -5,9 +5,7 @@ import shutil
 
 import requests
 
-from photoriver2.remote_base import BaseRemote
-
-IMAGE_EXTENSIONS = ("JPEG", "JPG", "HEIC", "CR2", "TIFF", "TIF")
+from photoriver2.remote_base import BaseRemote, IMAGE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +40,7 @@ class LocalRemote(BaseRemote):
                 if "." in name and name.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
                     if not os.path.islink(os.path.join(root, afile)):
                         # pylint: disable=cell-var-from-loop,consider-using-with
-                        photos.append({"name": name, "data": lambda n=os.path.join(root, afile): open(n, "rb")})
+                        photos.append({"name": name, "filename": os.path.join(root, afile)})
         return sorted(photos, key=lambda x: x["name"])
 
     def get_albums(self):
@@ -62,6 +60,9 @@ class LocalRemote(BaseRemote):
                     }
                 )
         return sorted(albums, key=lambda x: x["name"])
+
+    def get_data(self, photo):  # TODO: replace with a context manager generator
+        return open(photo["filename"], "rb")
 
     def get_fixes(self):
         fixes = []
@@ -95,74 +96,43 @@ class LocalRemote(BaseRemote):
                     self._abs(afix["name"]),
                 )
 
-    # TODO figure out solution to match 2008/8/3/IMG1232.JPG to 2008/08/03/IMG1232.JPG
-    def _do_photo_updates(self, updates):
+    # TODO figure out solution to match 2008/8/3/IMG1232.JPG to 2008/08/03/IMG1232.JPG - with fixes?
+    def do_updates(self, updates):
         for update in updates:
-            if update["action"] == "new":
-                if not os.path.exists(self._abs(update["name"])):
-                    logger.info("Remote %s: adding photo %s", self.name, update["name"])
-                    os.makedirs(self._abs(os.path.dirname(update["name"])), exist_ok=True)
+            if update.action == "new":
+                if not os.path.exists(self._abs(update.name)):
+                    logger.info("Remote %s: adding photo %s", self.name, update.name)
+                    os.makedirs(self._abs(os.path.dirname(update.name)), exist_ok=True)
                     try:
-                        with open(self._abs(update["name"]), "wb") as outfile:
-                            infile = update["data"]()
+                        with open(self._abs(update.name), "wb") as outfile:
+                            infile = update.data()
                             outfile.write(infile.read())
                             infile.close()
                     except (requests.exceptions.HTTPError, OSError, IOError):
-                        os.remove(self._abs(update["name"]))
+                        os.remove(self._abs(update.name))
                         raise
-            elif update["action"] == "del":
-                if os.path.exists(self._abs(update["name"])):
-                    logger.info("Remote %s: deleting photo %s", self.name, update["name"])
-                    os.remove(self._abs(update["name"]))
-            elif update["action"] == "mv":
-                if os.path.exists(self._abs(update["name"])):
-                    if not os.path.exists(self._abs(update["new_name"])):
-                        logger.info("Remote %s: moving photo %s to %s", self.name, update["name"], update["new_name"])
-                        os.makedirs(self._abs(os.path.dirname(update["new_name"])), exist_ok=True)
-                        os.rename(self._abs(update["name"]), self._abs(update["new_name"]))
-
-    def _do_album_updates(self, updates):  # pylint: disable=too-many-branches
-        for update in updates:
-            if update["action"] == "new_album":
-                album_path = self._abs(os.path.join("albums", update["name"]))
+            elif update.action == "new_album":
+                album_path = self._abs(os.path.join("albums", update.name))
                 if not os.path.exists(album_path):
-                    logger.info("Remote %s: creating album %s", self.name, update["name"])
+                    logger.info("Remote %s: creating album %s", self.name, update.name)
                     os.makedirs(album_path)
-                    for aphoto in update["photos"]:
+                    for aphoto in update.photo["photos"]:
                         if not os.path.exists(os.path.join(album_path, os.path.basename(aphoto))):
-                            # TODO: there could be real situations where basename of a photo in album is duplicate
                             os.symlink(
                                 os.path.relpath(self._abs(aphoto), album_path),
-                                os.path.join(album_path, os.path.basename(aphoto)),
+                                deconflict(os.path.join(album_path, os.path.basename(aphoto))),
                             )
-            elif update["action"] == "del_album":
-                album_path = self._abs(os.path.join("albums", update["name"]))
-                logger.info("Remote %s: deleting album %s", self.name, update["name"])
-                shutil.rmtree(album_path, ignore_errors=True)
-            elif update["action"] == "new_album_photo":
-                album_path = self._abs(os.path.join("albums", update["album_name"]))
+            elif update.action == "new_album_photo":
+                album_path = self._abs(os.path.join("albums", update.album_name))
                 found = False
                 for image in os.listdir(album_path):
-                    if os.path.realpath(os.path.join(album_path, image)) == self._abs(update["name"]):
+                    if os.path.realpath(os.path.join(album_path, image)) == self._abs(update.name):
                         found = True
                 if not found:
-                    logger.info(
-                        "Remote %s: adding photos %s to album %s", self.name, update["name"], update["album_name"]
-                    )
-                    link_path = os.path.join(album_path, os.path.basename(update["name"]))
+                    logger.info("Remote %s: adding photos %s to album %s", self.name, update.name, update.album_name)
+                    link_path = os.path.join(album_path, os.path.basename(update.name))
                     link_path = deconflict(link_path)
                     os.symlink(
-                        os.path.relpath(self._abs(update["name"]), album_path),
+                        os.path.relpath(self._abs(update.name), album_path),
                         link_path,
                     )
-            elif update["action"] == "del_album_photo":
-                album_path = self._abs(os.path.join("albums", update["album_name"]))
-                for image in os.listdir(album_path):
-                    if os.path.realpath(os.path.join(album_path, image)) == self._abs(update["name"]):
-                        logger.info(
-                            "Remote %s: removing photos %s to album %s",
-                            self.name,
-                            update["name"],
-                            update["album_name"],
-                        )
-                        os.remove(os.path.join(album_path, image))
