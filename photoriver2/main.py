@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import os
 
 from photoriver2.config import parse_config, init_remotes
 
@@ -23,6 +24,7 @@ def parse_args():
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     options = parse_args()
     logger.info("Parsing config")
     if os.path.exists("/river/config"):
@@ -50,8 +52,8 @@ def main():
             print(fixes)
         else:
             remotes[remote].do_fixes(fixes)
-    if options.sync_only:
-        logger.info("State sync complete - exiting")
+    if options.fixes_only:
+        logger.info("Fixes complete - exiting")
         return
     if not options.push_only:
         logger.info("Starting pulling new photos to base from remotes")
@@ -60,7 +62,7 @@ def main():
                 continue
             logger.info("Finding pull merges for %s", remote)
             merges = remotes["base"].get_merge_updates(remotes[remote])
-            if config_data["options"]["dry_run"]:
+            if options.dry_run:
                 print(merges)
             else:
                 logger.info("Applying pull merges from %s to base", remote)
@@ -73,7 +75,7 @@ def main():
                 continue
             logger.info("Finding push merges for %s", remote)
             merges = remotes[remote].get_merge_updates(remotes["base"])
-            if config_data["options"]["dry_run"]:
+            if options.dry_run:
                 print(merges)
             else:
                 logger.info("Applying pull merges to %s from base", remote)
@@ -83,5 +85,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     main()

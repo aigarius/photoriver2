@@ -1,4 +1,5 @@
 """Google Photo API abstraction module"""
+import concurrent.futures
 import json
 import logging
 import os.path
@@ -154,7 +155,7 @@ class GPhoto:
                     "id": entry["id"],
                     "description": entry.get("description", entry["filename"]),
                     "raw": entry,
-                    "modified": datetime.now(),
+                    "modified": datetime.now().isoformat(),
                 }
             )
         return photos
@@ -204,7 +205,7 @@ class GPhoto:
 
     def read_photo(self, photo):
         """Return a file-like object that can be read() to get photo file data"""
-        if datetime.now() - photo.get("modified", datetime.now()) > timedelta(minutes=59):
+        if datetime.now() - datetime.fromisoformat(photo.get("modified", datetime.fromtimestamp(0).isoformat())) > timedelta(minutes=59):
             logger.warning("Media URL expired, refreshing")
             response = requests.get(URL_PHOTOS + "/" + photo["id"], headers=self.headers)
             response.raise_for_status()
@@ -251,17 +252,19 @@ class GPhoto:
         logger.info("Starting batch upload of %s images to album %s", len(filenames), album_id)
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             upload_tokens = list(executor.map(self.upload_media, filenames))
+        results = []
         for i, achunk in enumerate(chunk(upload_tokens, 50)):
             logger.info("Creating media from uploaded data: %s-%s/%s)", i * 50, i * 50 + len(achunk), len(filenames))
-            create_media(achunk, album_id)
+            results.extend(create_media(achunk, album_id))
         logger.info("Batch upload completed")
+        return results
 
     def upload_media(self, filename):
         """Do the media upload step of adding a photo to GPhoto Library - returns a token for batch media creation"""
         logger.info("Uploading file %s starting", filename)
         headers = {
             "Content-type": "application/octet-stream",
-            "X-Goog-Upload-Content-Type": "image/jpeg",
+            "X-Goog-Upload-Content-Type": "image/jpeg",  # TODO: set correct content type for non-JPEG
             "X-Goog-Upload-Protocol": "raw",
         }
         headers.update(self.headers)
@@ -299,3 +302,5 @@ class GPhoto:
                     bad_items = [x[0] for x in data_items if x[1] == item.get("uploadToken", "xxx")]
                     logger.error("Files missed uploads: %s", bad_items)
         response.raise_for_status()
+        feed = response.text.encode("utf8")
+        return json.loads(feed)["newMediaItemResults"]

@@ -29,12 +29,12 @@ def init_remotes(config_data):
             remotes[name] = LocalRemote(
                 name=name,
                 folder=config_data["remotes"][name]["folder"],
-                blacklist=config_data["remotes"][name]["folder"],
+                blacklist=config_data["remotes"][name].get("blacklist", ""),
             )
         if config_data["remotes"][name]["type"] == "google":
             remotes[name] = GoogleRemote(
                 name=name,
                 token_cache=os.path.join(config_data["config_path"], config_data["remotes"][name]["token_cache"]),
-                blacklist=config_data["remotes"][name]["folder"],
+                blacklist=config_data["remotes"][name].get("blacklist", ""),
             )
     return remotes
