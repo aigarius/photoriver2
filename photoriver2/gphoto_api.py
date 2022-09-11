@@ -133,7 +133,7 @@ class GPhoto:
 
     def _load_new_data(self, url, method, payload):
         if method == "get":
-            response = requests.get(url, json=payload, headers=self.headers)
+            response = requests.get(url, params=payload, headers=self.headers)
         elif method == "post":
             response = requests.post(url, json=payload, headers=self.headers)
         if response.status_code != 200:
