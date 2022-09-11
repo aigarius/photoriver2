@@ -61,7 +61,7 @@ class LocalRemote(BaseRemote):
                 albums.append(
                     {
                         "name": adir.name,
-                        "photos": [{"name": x, "filename": os.path.join(self.folder, x)} for x in sorted(photos)],
+                        "photos": sorted(photos),
                     }
                 )
         logger.info("Getting albums from %s - done, found %s", self.folder, len(albums))

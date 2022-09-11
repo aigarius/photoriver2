@@ -50,7 +50,7 @@ class GoogleRemote(BaseRemote):
         albums = self.api.get_albums()
         for album in albums:
             logger.info("Remote %s: Loading photo info of album %s: ", self.name, album["name"])
-            album["photos"] = [self._get_name(x) for x in self.api.get_photos(album_id=album["id"])]
+            album["photos"] = sorted([self._get_name(x) for x in self.api.get_photos(album_id=album["id"])])
         logger.info("Getting albums list from Google - done, found %s", len(albums))
         return sorted(albums, key=lambda x: x["name"])
 

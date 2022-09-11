@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 class Update:
     """Incapsulates information about a change that needs to be applied"""
 
-    def __init__(self, action, remote, photo, name=None, album_name=None, *args, **kwargs):
+    def __init__(self, action, remote, photo=None, name=None, album_name=None, *args, **kwargs):
         self.action = action
         self.name = name or photo["name"]
         self.remote = remote
-        self.photo = photo.copy()
+        self.photo = photo.copy() if photo else None
         self.album_name = album_name
 
     def data(self):
@@ -105,9 +105,11 @@ class BaseRemote:
             if not old_album:
                 logger.error("Album not found while trying to add photos to it: %s not in %s", album["name"], self.state["albums"])
                 continue
-            new_photos = set([{"name": x} for x in album["photos"]]) - set([{"name": x} for x in old_album["photos"]])
+            print(album["photos"])
+            print(old_album["photos"])
+            new_photos = set(album["photos"]) - set(old_album["photos"])
             for new_photo in new_photos:
                 logger.info("Remote %s: photo %s was added to album %s", self.name, new_photo, album["name"])
-                updates.append(Update(action="new_album_photo", photo=new_photo, remote=other, album_name=album["name"]))
+                updates.append(Update(action="new_album_photo", name=new_photo, remote=other, album_name=album["name"]))
 
         return updates
