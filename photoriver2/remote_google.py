@@ -32,7 +32,7 @@ class GoogleRemote(BaseRemote):
 
     def get_photos(self):
         logger.info("Getting photos list from Google")
-        photos = [x for x in self.api.get_photos()]
+        photos = [x for x in self.api.get_photos(archived=True)]
         now = datetime.now()
 
         for photo in photos:

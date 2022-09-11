@@ -18,7 +18,7 @@ CLIENT_SECRET = "jMX0btH5hLlfJgxXF6-bUgf6"
 REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
 TOKEN_URI = "https://accounts.google.com/o/oauth2/token"
 
-URL_PHOTOS = "https://photoslibrary.googleapis.com/v1/mediaItems"
+URL_PHOTOS = "https://photoslibrary.googleapis.com/v1/mediaItems:search"
 URL_ALBUMS = "https://photoslibrary.googleapis.com/v1/albums"
 AUTH_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
 
@@ -133,9 +133,9 @@ class GPhoto:
 
     def _load_new_data(self, url, method, payload):
         if method == "get":
-            response = requests.get(url, params=payload, headers=self.headers)
+            response = requests.get(url, json=payload, headers=self.headers)
         elif method == "post":
-            response = requests.post(url, data=json.dumps(payload), headers=self.headers)
+            response = requests.post(url, json=payload, headers=self.headers)
         if response.status_code != 200:
             logger.error("Failed call to '%s' on '%s' with payload '%s'", method, url, payload)
             response.raise_for_status()
@@ -160,10 +160,10 @@ class GPhoto:
             )
         return photos
 
-    def get_photos(self, album_id=None, start_date=None, end_date=None):
+    def get_photos(self, album_id=None, start_date=None, end_date=None, archived=False):
         logger.info("Retrieving photos for album %s or time %s-%s", album_id, start_date, end_date)
-        payload = {"pageSize": 100}
-        method = "get"
+        payload = {"pageSize": "100"}
+        method = "post"
         url = URL_PHOTOS
         if album_id:
             payload["albumId"] = album_id
@@ -185,6 +185,8 @@ class GPhoto:
                 "day": end_date.day,
             }
             payload["filters"] = {"dateFilter": {"ranges": [{"startDate": start_date, "endDate": end_date}]}}
+        elif archived:
+            payload["filters"] = {"includeArchivedMedia": True}
 
         data = self._load_new_data(url, method, payload)
         photos = self._extract_photos(data)
