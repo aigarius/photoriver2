@@ -11,6 +11,8 @@ from photoriver2.gphoto_api import GPhoto
 
 logger = logging.getLogger(__name__)
 
+class DataExpired(Exception):
+    pass
 
 class GoogleRemote(BaseRemote):
     """Remote representing a Google Library with photos"""
@@ -22,7 +24,11 @@ class GoogleRemote(BaseRemote):
     def get_data(self, photo):
         if not "raw" in photo:
             photo = self.find_photo(photo["name"])
-        return self.api.read_photo(photo)
+        try:
+            return self.api.read_photo(photo)
+        except requests.exceptions.HTTPError:
+            logger.warning("Error reading photo data, likely the state expired")
+            raise DataExpired
 
     def get_photos(self):
         logger.info("Getting photos list from Google")
@@ -49,6 +55,8 @@ class GoogleRemote(BaseRemote):
         logger.info("Getting albums list from Google")
         albums = self.api.get_albums()
         for album in albums:
+            if "/" in album["name"]:
+                album["name"] = album["name"].replace("/", "_")
             logger.info("Remote %s: Loading photo info of album %s: ", self.name, album["name"])
             album["photos"] = sorted([self._get_name(x) for x in self.api.get_photos(album_id=album["id"])])
         logger.info("Getting albums list from Google - done, found %s", len(albums))

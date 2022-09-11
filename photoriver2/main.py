@@ -3,7 +3,9 @@ import argparse
 import logging
 import os
 
-from photoriver2.config import parse_config, init_remotes
+from pprint import pprint
+
+from photoriver2.config import parse_config, init_remotes, DataExpired
 
 logger = logging.getLogger("photoriver2")
 
@@ -49,9 +51,13 @@ def main():
         logger.info("Fixes for remote %s", remote)
         fixes = remotes[remote].get_fixes()
         if options.dry_run:
-            print(fixes)
+            print(f"Fixes for {remote}")
+            pprint(fixes)
+            print([(x, len([f for f in fixes if f["action"]==x])) for x in set(a["action"] for a in fixes)])
         else:
             remotes[remote].do_fixes(fixes)
+            if fixes:
+                remotes[remote].get_new_state()
     if options.fixes_only:
         logger.info("Fixes complete - exiting")
         return
@@ -60,14 +66,23 @@ def main():
         for remote in remotes:
             if remote == "base":
                 continue
-            logger.info("Finding pull merges for %s", remote)
-            merges = remotes["base"].get_merge_updates(remotes[remote])
-            if options.dry_run:
-                print(merges)
-            else:
-                logger.info("Applying pull merges from %s to base", remote)
-                remotes["base"].do_updates(merges)
-        logger.info("Applying all pull merges - done")
+            pull_done = False
+            while not pull_done:
+                try:
+                    logger.info("Finding pull merges for %s", remote)
+                    merges = remotes["base"].get_merge_updates(remotes[remote])
+                    if options.dry_run:
+                        print(f"Merges pull for {remote}")
+                        pprint(merges)
+                        print([(x, len([f for f in merges if f.action==x])) for x in set(a.action for a in merges)])
+                        pull_done = True
+                    else:
+                        logger.info("Applying pull merges from %s to base", remote)
+                        remotes["base"].do_updates(merges)
+                        pull_done = True
+                        logger.info("Applying all pull merges - done")
+                except DataExpired:
+                    remotes[remote].get_new_state()
     if not options.pull_only:
         logger.info("Starting pushing new photos from base to remotes")
         for remote in remotes:
@@ -76,11 +91,13 @@ def main():
             logger.info("Finding push merges for %s", remote)
             merges = remotes[remote].get_merge_updates(remotes["base"])
             if options.dry_run:
-                print(merges)
+                print(f"Merges push for {remote}")
+                pprint(merges)
+                print([(x, len([f for f in merges if f.action==x])) for x in set(a.action for a in merges)])
             else:
                 logger.info("Applying pull merges to %s from base", remote)
                 remotes[remote].do_updates(merges)
-        logger.info("Applying all pull merges - done")
+                logger.info("Applying all pull merges - done")
     logger.info("Sync completed")
 
 

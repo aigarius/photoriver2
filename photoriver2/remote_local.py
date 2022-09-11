@@ -3,6 +3,7 @@ import concurrent.futures
 import logging
 import os
 import shutil
+import re
 
 import requests
 
@@ -85,6 +86,31 @@ class LocalRemote(BaseRemote):
                                 "to": os.path.basename(full_path),
                             }
                         )
+        date_match = re.compile(r"(\d+)/(\d+)/(\d+)/(.+)")
+        for root, _, files in os.walk(self.folder):
+            for afile in files:
+                full_path = os.path.join(root, afile)
+                # Images without extension need a default
+                if "." not in afile:
+                    fixes.append(
+                        {
+                            "action": "rename",
+                            "name": os.path.relpath(full_path, self.folder),
+                            "to": os.path.relpath(deconflict(full_path + ".jpg"), self.folder),
+                        }
+                    )
+                name = os.path.relpath(full_path, self.folder)
+                amatch = date_match.match(name)
+                if amatch and (len(amatch.group(2)) < 2 or len(amatch.group(3)) < 2):
+                    new_name = "{:04d}/{:02d}/{:02d}/{}".format(int(amatch.group(1)), int(amatch.group(2)), int(amatch.group(3)), amatch.group(4))
+                    fixes.append(
+                        {
+                            "action": "rename",
+                            "name": os.path.relpath(full_path, self.folder),
+                            "to": new_name,
+                        }
+                    )
+
         return fixes
 
     def _abs(self, path):
@@ -94,13 +120,16 @@ class LocalRemote(BaseRemote):
         for afix in fixes:
             if afix["action"] == "symlink":
                 # Move the file over to new location (making parent folders as needed)
-                os.makedirs(self._abs(os.path.dirname(afix["to"])))
+                os.makedirs(self._abs(os.path.dirname(afix["to"])), exist_ok=True)
                 os.rename(self._abs(afix["name"]), self._abs(afix["to"]))
                 # Create a relative symlink in the old place pointing to the new location
                 os.symlink(
                     os.path.relpath(self._abs(afix["to"]), os.path.dirname(self._abs(afix["name"]))),
                     self._abs(afix["name"]),
                 )
+            elif afix["action"] == "rename":
+                os.makedirs(self._abs(os.path.dirname(afix["to"])), exist_ok=True)
+                os.rename(self._abs(afix["name"]), self._abs(afix["to"]))
 
     def put_data(self, update):
         """Put a photo from other remote into this one"""

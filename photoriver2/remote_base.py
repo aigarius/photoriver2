@@ -21,6 +21,9 @@ class Update:
     def data(self):
         return self.remote.get_data(self.photo)
 
+    def __repr__(self):
+        return str(self.__dict__)
+
 
 class BaseRemote:
     """Common functionality between local folder remotes and online remotes"""
@@ -31,20 +34,23 @@ class BaseRemote:
         self.name = name
         self.state_file = os.path.join("/river/config", name + "_state.json")
         self.state = self.load_old_state(self.state_file)
+        self.name_cache = self.generate_name_cache()
 
-    @staticmethod
-    def load_old_state(state_file):
+    def load_old_state(self, state_file):
         if os.path.exists(state_file):
             with open(state_file, "r") as infile:
                 return json.load(infile)
         else:
-            return {"photos": [], "albums": []}
+            return self.get_new_state()
 
     def get_new_state(self, no_state_cache=False):
         self.state = {"photos": self.get_photos(), "albums": self.get_albums()}
         with open(self.state_file, "w") as infile:
             json.dump(self.state, infile, default=str)
         return self.state
+
+    def generate_name_cache(self):
+        return set(x["name"].strip().strip("/").upper() for x in self.state["photos"])
 
     def get_photos(self):
         raise NotImplementedError
@@ -75,10 +81,7 @@ class BaseRemote:
         return None
 
     def find_photo(self, name):
-        matching = [x for x in self.state["photos"] if x["name"] == name]
-        if matching:
-            return matching[0]
-        return None
+        return name.strip().strip("/").upper() in self.name_cache
 
     def get_merge_updates(self, other):
         """Return updates to add items from other remote"""
@@ -105,8 +108,6 @@ class BaseRemote:
             if not old_album:
                 logger.error("Album not found while trying to add photos to it: %s not in %s", album["name"], self.state["albums"])
                 continue
-            print(album["photos"])
-            print(old_album["photos"])
             new_photos = set(album["photos"]) - set(old_album["photos"])
             for new_photo in new_photos:
                 logger.info("Remote %s: photo %s was added to album %s", self.name, new_photo, album["name"])

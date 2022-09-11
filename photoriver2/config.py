@@ -4,7 +4,7 @@ import configparser
 import os
 
 from photoriver2.remote_local import LocalRemote
-from photoriver2.remote_google import GoogleRemote
+from photoriver2.remote_google import GoogleRemote, DataExpired
 
 
 def parse_config(config_path="/river/config", config_text=None):
