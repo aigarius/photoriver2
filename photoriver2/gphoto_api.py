@@ -167,11 +167,7 @@ class GPhoto:
         url = URL_PHOTOS
         if album_id:
             payload["albumId"] = album_id
-            method = "post"
-            url += ":search"
         elif start_date:
-            method = "post"
-            url += ":search"
             start_date = {
                 "year": start_date.year,
                 "month": start_date.month,
