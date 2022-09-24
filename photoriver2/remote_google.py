@@ -65,7 +65,8 @@ class GoogleRemote(BaseRemote):
     def do_updates(self, updates):
 
         # Do the downloads as a batch
-        new_media = self.api.batch_upload([x.filename for x in updates if x.action == "new"])
+        # TODO this function should not have that much knowledge about local file remote internal data structures
+        new_media = self.api.batch_upload([os.path.join(x.remote.folder, x.name) for x in updates if x.action == "new"])
         # TODO append to self.state["photos"]
 
         for update in updates:
@@ -73,11 +74,11 @@ class GoogleRemote(BaseRemote):
                 logger.info("Remote %s: creating album %s", self.name, update.name)
                 album_data = self.api.create_album(update.name)
                 # TODO append to self.state["albums"]
-                new_media = self.api.batch_upload(update.photo["photos"], album_data["id"])
+                new_media = self.api.batch_upload([os.path.join(x.remote.folder, x) for x in update.photo["photos"]], album_data["id"])
                 # TODO append to self.state["photos"]
 
         new_album_photos = [x for x in updates if x.action == "new_album_photo"]
         updated_albums = set(x.album_name for x in new_album_photos)
         for album in updated_albums:
             album_id = [x["id"] for x in self.state["albums"] if x["name"] == album][0]
-            self.api.batch_upload([x.filename for x in new_album_photos if x.album_name == album], album_id)
+            self.api.batch_upload([os.path.join(x.remote.folder, x.name) for x in new_album_photos if x.album_name == album], album_id)

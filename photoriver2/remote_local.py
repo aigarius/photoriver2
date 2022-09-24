@@ -145,7 +145,6 @@ class LocalRemote(BaseRemote):
                 os.remove(self._abs(update.name))
                 raise
 
-    # TODO figure out solution to match 2008/8/3/IMG1232.JPG to 2008/08/03/IMG1232.JPG - with fixes?
     def do_updates(self, updates):
 
         # Do the downloads as a batch

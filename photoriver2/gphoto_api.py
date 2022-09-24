@@ -270,6 +270,8 @@ class GPhoto:
             response = requests.post(
                 "https://photoslibrary.googleapis.com/v1/uploads", headers=headers, data=infile.read()
             )
+        if response.status_code != requests.codes.ok:
+            logger.error("Uploading file %s failed: %s", filename, response.text)
         response.raise_for_status()
         logger.info("Uploading file %s done", filename)
         return (filename, response.text)

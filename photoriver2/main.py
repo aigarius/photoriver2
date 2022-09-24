@@ -81,6 +81,7 @@ def main():
                         remotes["base"].do_updates(merges)
                         pull_done = True
                         logger.info("Applying all pull merges - done")
+                        remotes["base"].get_new_state(no_state_cache=options.no_state_cache)
                 except DataExpired:
                     remotes[remote].get_new_state()
     if not options.pull_only:
