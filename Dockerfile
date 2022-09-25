@@ -1,6 +1,6 @@
 FROM debian:testing
 
-RUN apt-get update && apt-get install -y python3-requests python3-httpretty python3-mock python3-pytest python3-pip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3-requests python3-httpretty python3-mock python3-pytest python3-pip python3-pillow python3-dateutil && rm -rf /var/lib/apt/lists/*
 RUN pip install black
 
 RUN mkdir -p /river/code /river/base /river/config /river/locals

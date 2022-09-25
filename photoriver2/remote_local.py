@@ -4,8 +4,15 @@ import logging
 import os
 import shutil
 import re
+import datetime
 
+import dateutil
+import dateutil.tz
+import dateutil.utils
+import dateutil.parser
 import requests
+
+from PIL import Image, UnidentifiedImageError
 
 from photoriver2.remote_base import BaseRemote, IMAGE_EXTENSIONS
 
@@ -73,6 +80,46 @@ class LocalRemote(BaseRemote):
 
     def get_fixes(self):
         fixes = []
+        default_tz = dateutil.tz.gettz()
+        Image.MAX_IMAGE_PIXELS = 150000000
+        
+        for root, _, files in os.walk(self.folder):
+            for afile in files:
+                if "." in afile and afile.rsplit(".", 1)[1].upper() in IMAGE_EXTENSIONS:
+                    full_path = os.path.join(root, afile)
+                    if os.path.islink(full_path):
+                        continue
+                    basename = os.path.basename(full_path)
+                    try:
+                        exif_data = Image.open(full_path)._getexif()
+                    except (UnidentifiedImageError, Image.DecompressionBombError, AttributeError):
+                        logger.debug("No exif date found on %s", full_path)
+                        continue
+                    # Look into EXIF data "DateTimeOriginal", "DateTimeDigitized" or "DateTime"
+                    if not exif_data:
+                        logger.debug("No exif date found on %s", full_path)
+                        continue
+                    exif_date = exif_data.get(36867, '').strip() or exif_data.get(36868, '').strip() or exif_data.get(306, '').strip()
+                    if not exif_date or not exif_date.isprintable():
+                        logger.debug("No exif date found on %s", full_path)
+                        continue
+                    # Assume that exif date is in local timezone
+                    exif_date = datetime.datetime.strptime(exif_date[:18], "%Y:%m:%d %H:%M:%S")
+                    exif_date.replace(tzinfo=default_tz)
+                    # Correct date will be in UTC timezone
+                    utc_date = exif_date.utctimetuple()
+                    correct_path = f"{utc_date[0]:04d}/{utc_date[1]:02d}/{utc_date[2]:02d}/{basename}"
+                    if correct_path != os.path.relpath(full_path, self.folder):
+                        logger.debug("Paths do not match: should be %s and not %s", correct_path, os.path.relpath(full_path, self.folder))
+                        fixes.append(
+                            {
+                                "action": "rename",
+                                "name": os.path.relpath(full_path, self.folder),
+                                "to": correct_path,
+                            }
+                        )
+
+
         # Files in albums/ should be symlinks
         for root, _, files in os.walk(os.path.join(self.folder, "albums")):
             for afile in files:
@@ -86,31 +133,6 @@ class LocalRemote(BaseRemote):
                                 "to": os.path.basename(full_path),
                             }
                         )
-        date_match = re.compile(r"(\d+)/(\d+)/(\d+)/(.+)")
-        for root, _, files in os.walk(self.folder):
-            for afile in files:
-                full_path = os.path.join(root, afile)
-                # Images without extension need a default
-                if "." not in afile:
-                    fixes.append(
-                        {
-                            "action": "rename",
-                            "name": os.path.relpath(full_path, self.folder),
-                            "to": os.path.relpath(deconflict(full_path + ".jpg"), self.folder),
-                        }
-                    )
-                name = os.path.relpath(full_path, self.folder)
-                amatch = date_match.match(name)
-                if amatch and (len(amatch.group(2)) < 2 or len(amatch.group(3)) < 2):
-                    new_name = "{:04d}/{:02d}/{:02d}/{}".format(int(amatch.group(1)), int(amatch.group(2)), int(amatch.group(3)), amatch.group(4))
-                    fixes.append(
-                        {
-                            "action": "rename",
-                            "name": os.path.relpath(full_path, self.folder),
-                            "to": new_name,
-                        }
-                    )
-
         return fixes
 
     def _abs(self, path):
