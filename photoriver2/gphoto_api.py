@@ -24,9 +24,16 @@ AUTH_SCOPE = "https://www.googleapis.com/auth/photoslibrary"
 
 
 def chunk(alist, size):
-    """Splits a long list into multiple lists of no longer than size"""
-    return [alist[i : i + size] for i in range(0, len(alist), size)]
-
+    """Splits a long iterator into multiple lists of no longer than size"""
+    while True:
+        achunk = []
+        for i in range(size):
+            try:
+                achunk.append(next(alist))
+            except StopIteration:
+                yield achunk
+                return
+        yield achunk
 
 class GPhoto:
     """Implement the Google Photo Library API"""
@@ -249,15 +256,24 @@ class GPhoto:
     def batch_upload(self, filenames, album_id=None):
         logger.info("Starting batch upload of %s images to album %s", len(filenames), album_id)
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            upload_tokens = list(executor.map(self.upload_media, filenames))
-        results = []
-        for i, achunk in enumerate(chunk(upload_tokens, 50)):
-            logger.info("Creating media from uploaded data: %s-%s/%s)", i * 50, i * 50 + len(achunk), len(filenames))
-            results.extend(create_media(achunk, album_id))
+            upload_futures = [executor.submit(self.upload_media, x) for x in filenames]
+            logger.info("All upload tasks submitted, waiting for processing")
+            results = []
+            errors = []
+            for i, achunk in enumerate(chunk(concurrent.futures.as_completed(upload_futures), 50)):
+                logger.info("Creating media from uploaded data: %s-%s/%s", i * 50, i * 50 + len(achunk), len(filenames))
+                errors.extend([x.exception() for x in achunk if x.exception()])
+                achunk = [x.result() for x in achunk if not x.exception()]
+                logger.info("Creating media with %s successful uploads (errors %s until now)", len(achunk), len(errors))
+                if achunk:
+                    results.extend(self.create_media(achunk, album_id))
+                logger.info("Creating media from uploaded data: %s-%s/%s - done", i * 50, i * 50 + len(achunk), len(filenames))
         logger.info("Batch upload completed")
+        if errors:
+            logger.warning("Upload errors detected: (%s) %s", len(errors), errors)
         return results
 
-    def upload_media(self, filename):
+    def upload_media(self, filename, delay=1):
         """Do the media upload step of adding a photo to GPhoto Library - returns a token for batch media creation"""
         logger.info("Uploading file %s starting", filename)
         headers = {
@@ -272,6 +288,10 @@ class GPhoto:
             )
         if response.status_code != requests.codes.ok:
             logger.error("Uploading file %s failed: %s", filename, response.text)
+            if "Quota exceeded" in response.text:
+                logger.warning("Upload quota exceeded, waiting for %s minute(s) before re-try", delay)
+                time.sleep(60 * delay)
+                return self.upload_media(filename, delay*2)
         response.raise_for_status()
         logger.info("Uploading file %s done", filename)
         return (filename, response.text)
@@ -301,6 +321,10 @@ class GPhoto:
                     logger.error("Problem with upload: %s", item)
                     bad_items = [x[0] for x in data_items if x[1] == item.get("uploadToken", "xxx")]
                     logger.error("Files missed uploads: %s", bad_items)
-        response.raise_for_status()
+        else:
+            if response.status_code != 200:
+                logger.error("Create request failed - request: %s", data)
+                logger.error("Create request failed - response: %s", response.text)
+            response.raise_for_status()
         feed = response.text.encode("utf8")
         return json.loads(feed)["newMediaItemResults"]

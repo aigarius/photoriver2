@@ -6,6 +6,8 @@ import time
 
 from datetime import datetime
 
+import requests
+
 from photoriver2.remote_base import BaseRemote
 from photoriver2.gphoto_api import GPhoto
 
